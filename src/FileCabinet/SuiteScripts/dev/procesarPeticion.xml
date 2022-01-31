@@ -1,0 +1,11 @@
+<soapenv:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sgc="http://www.sgcweb.com.mx/sgcweb">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <sgc:procesarPeticion soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+         <session xsi:type="xsd:string">idSession</session>
+         <modulo xsi:type="xsd:string">typeModule</modulo>
+         <accion xsi:type="xsd:string">action</accion>
+         <paquete xsi:type="xsd:string">data</paquete>
+      </sgc:procesarPeticion>
+   </soapenv:Body>
+</soapenv:Envelope>

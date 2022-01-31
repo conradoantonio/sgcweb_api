@@ -1,0 +1,14 @@
+<soapenv:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sgc="http://www.sgcweb.com.mx/sgcweb" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <sgc:login soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+         <user_auth xsi:type="sgc:user_auth">
+            <!--You may enter the following 2 items in any order-->
+            <user_name xsi:type="xsd:string">apiuser</user_name>
+            <password xsi:type="xsd:string">a5b5e30dc3dcd0f3f5444baaf38448b1</password>
+         </user_auth>
+         <application_name xsi:type="xsd:string">?</application_name>
+         <name_value_list xsi:type="sgc:name_value_list" SOAP-ENC:arrayType="sgc:name_value[]"/>
+      </sgc:login>
+   </soapenv:Body>
+</soapenv:Envelope>
