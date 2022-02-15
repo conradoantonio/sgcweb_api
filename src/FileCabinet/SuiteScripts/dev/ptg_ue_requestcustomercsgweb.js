@@ -57,20 +57,20 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
                     });
                     let internalFileId = searchXmlFile(search);
                     let dirDefault = searchDefaultAddress(search, rowCustomer);
-                    let dataCustomer = setDataCustomer(rowCustomer, customerInfo, dirDefault, 'create');
+                    let dataToSend = setDataCustomer(rowCustomer, customerInfo, dirDefault, 'create');
                     
                     log.debug('Info', 'Edición de cliente');
                     log.debug('Customer aditional info', customerInfo);
                     log.debug('Xml ID', internalFileId);
                     log.debug('formato de direccion', dirDefault);
-                    log.debug('data customer', dataCustomer);
+                    log.debug('data customer', dataToSend);
 
                     // Se busca la información de la dirección por defecto
                     let xmlContent = file.load({ id: internalFileId }).getContents();
                     let typeModule = "Clientes";
                     let action = "registrar";
 
-                    let responseInfo = registerCustomer(xmlContent, idToken, typeModule, action, dataCustomer);
+                    let responseInfo = registerCustomer(xmlContent, idToken, typeModule, action, dataToSend);
 
                     log.debug('response info', responseInfo);
 
@@ -100,39 +100,60 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
                     let rowCustomer = scriptContext.newRecord;// Get edited customer
                     let internalFileId = searchXmlFile(search);
                     let dirDefault = searchDefaultAddress(search, rowCustomer);
-                    let dataCustomer = setDataCustomer(rowCustomer, null, dirDefault, 'edit');
-                    
+                    let isConsumer = rowCustomer.getValue({fieldId:'parent'});
+
                     log.debug('Info', 'Edición de cliente');
+                    log.debug('parent', rowCustomer.getValue({fieldId:'parent'}));
+                    log.debug('Politica de venta', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeventa_'}));
+                    log.debug('Politica de consumo', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}));
+                    
                     log.debug('Xml ID', internalFileId);
                     log.debug('formato de direccion', dirDefault);
-                    log.debug('data customer', dataCustomer);
+                    // log.debug('data customer', dataToSend);
 
-                    // Se busca la información de la dirección por defecto
+                    let typeModule = action = dataToSend = responseInfo = '';
                     let xmlContent = file.load({ id: internalFileId }).getContents();
-                    let typeModule = "Clientes";
-                    let action = "registrar";
-
-                    let responseInfo = registerCustomer(xmlContent, idToken, typeModule, action, dataCustomer);
+                    
+                    if ( isConsumer ) { // Se da de alta un consumidor
+                        
+                        typeModule = "Consumidores";
+                        action = "registrar";
+                        dataToSend = setDataConsumer(rowCustomer, null, dirDefault, 'edit');
+                        responseInfo = registerCustomer(xmlContent, idToken, typeModule, action, dataToSend);
+                        log.debug('Info', 'Entró a registrar un consumidor');
+                    
+                    } else { // Se da de alta un cliente
+                    
+                        typeModule = "Clientes";
+                        action = "registrar";
+                        dataToSend = setDataCustomer(rowCustomer, null, dirDefault, 'edit');
+                        responseInfo = registerCustomer(xmlContent, idToken, typeModule, action, dataToSend);
+                        log.debug('Info', 'Entró a registrar un cliente');
+                    
+                    }
 
                     log.debug('response info', responseInfo);
 
                     // Se validará que haya salido bien el response
                     if (["1111", "0000"].includes(responseInfo.code[0].textContent) ) {
                         log.debug('Response code info', 'Todo salió bien');
-                        let realResult = JSON.parse(responseInfo.info[0].textContent);
-                        log.debug('respuesta sgcweb', realResult);
-                        log.debug('numero de cliente de sgcweb', realResult.numero_cliente);
+                        if ( isConsumer ) { // Se registró un consumidor
+                            log.debug('respuesta', 'Consumidor registrado');
+                        } else { // Se registró un cliente
+                            let realResult = JSON.parse(responseInfo.info[0].textContent);
+                            log.debug('respuesta sgcweb', realResult);
+                            log.debug('numero de cliente de sgcweb', realResult.numero_cliente);
 
-                        // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
-                        record.submitFields({
-                            type: record.Type.CUSTOMER,
-                            id: rowCustomer.id,
-                            values: {
-                                'custentity_ptg_codigodecliente_': realResult.numero_cliente
-                            }
-                        });
-
-                        log.debug('Actualización', 'Código de cliente actualizado');
+                            // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
+                            record.submitFields({
+                                type: record.Type.CUSTOMER,
+                                id: rowCustomer.id,
+                                values: {
+                                    'custentity_ptg_codigodecliente_': realResult.numero_cliente
+                                }
+                            });
+                            log.debug('Actualización', 'Código de cliente actualizado');
+                        }
                     } else {
                         log.debug('Ocurrió un error', responseInfo.code[0].textContent);
                     }
@@ -244,6 +265,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
             let telefono1 = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : rowCustomer.getValue({fieldId:'phone'}) );
             let telefono2 = ( type == 'edit' ? rowCustomer.getText({fieldId:'altphone'}) : rowCustomer.getValue({fieldId:'altphone'}) );
             let email     = ( type == 'edit' ? rowCustomer.getText({fieldId:'email'}) : rowCustomer.getValue({fieldId:'email'}) );
+            let politica  = ( type == 'edit' ? rowCustomer.getValue({fieldId:'custentity_ptg_politicadeventa_'}) : rowCustomer.getValue({fieldId:'custentity_ptg_politicadeventa_'}) );
 
             let data = {
                 "numero_cliente":"",
@@ -265,8 +287,49 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
                 "activo":"1",
                 "email":email ?? "",
                 "saldo":"",
-                "politica_venta_id":""
+                "politica_venta_id":politica ?? ""
             };
+
+            return data;
+        }
+
+        // Configura los datos a enviar del consumidor a SGC web
+        const setDataConsumer = (rowCustomer, aditionalConsumerInfo = false, dirDefault, type) => {
+            // log.debug('info', 'entró a la función de configurar la información del cliente');
+
+            let nombre     = ( type == 'edit' ? rowCustomer.getText({fieldId:'altname'}) : aditionalConsumerInfo?.companyname );
+            let telefono1  = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : rowCustomer.getValue({fieldId:'phone'}) );
+            let telefono2  = ( type == 'edit' ? rowCustomer.getText({fieldId:'altphone'}) : rowCustomer.getValue({fieldId:'altphone'}) );
+            let email      = ( type == 'edit' ? rowCustomer.getText({fieldId:'email'}) : rowCustomer.getValue({fieldId:'email'}) );
+            let cliente_id = ( type == 'edit' ? rowCustomer.getValue({fieldId:'parent'}) : rowCustomer.getValue({fieldId:'parent'}) );
+            let politica   = ( type == 'edit' ? rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}) : rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}) );
+
+            let data = {
+                "numero_consumidor":"",
+                "identificador_externo": rowCustomer.id,
+                "nombres":nombre ? nombre : "Nombre cliente",
+                "apellidos":"Doe",
+                "telefono1":telefono1 ? telefono1 : "industrial",
+                "telefono2":telefono2 ?? "",
+                "descripcion":"Descripción de subcliente",
+                "comentario":"Comentario de subcliente",
+                "calle_numero":dirDefault['no_exterior'] ?? "",
+                "colonia":dirDefault['colonia'] ?? "",
+                "ciudad":dirDefault['ciudad'] ?? "",
+                "estado":dirDefault['estado'] ?? "",
+                "pais":dirDefault['pais'] ?? "",
+                "codigo_postal":( dirDefault['codigo_postal'] && dirDefault['codigo_postal'] != '' ? dirDefault['codigo_postal'] : "31135" ),
+                "email":email ?? "",
+                "saldo":"",
+                "tipo_consumidor_id":"",
+                "politica_consumo_id":politica ?? "",
+                "cliente_id":cliente_id,
+                "capacidad":"2",
+                "tipo_pago":"",
+                "numero_verificador":""
+            };
+
+            log.debug('info consumidor', data);
 
             return data;
         }
@@ -370,11 +433,11 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
         }
 
         // Guarda / actualiza un cliente en SGC web
-        const registerCustomer = (xmlContent, idToken, typeModule, action, dataCustomer) => {
+        const registerCustomer = (xmlContent, idToken, typeModule, action, data) => {
             xmlContent = xmlContent.split('idSession').join(`${idToken}`);
             xmlContent = xmlContent.split('typeModule').join(`${typeModule}`);
             xmlContent = xmlContent.split('action').join(`${action}`);
-            xmlContent = xmlContent.split('data').join(`${JSON.stringify(dataCustomer)}`);
+            xmlContent = xmlContent.split('data').join(`${JSON.stringify(data)}`);
 
             // log.debug('despues del primer join', xmlContent);
 

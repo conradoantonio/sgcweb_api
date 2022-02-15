@@ -185,7 +185,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml'],
 
                     let xmlContent = file.load({ id: res }).getContents();
                     log.debug('xmlContent ', xmlContent);
-                    let typeModule = "Clientes";
+                    let typeModule = "Pedidos";
                     let action = "registrar";
                     let data = {
                         "numero_cliente":"",
