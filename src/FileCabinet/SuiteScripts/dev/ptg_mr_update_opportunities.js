@@ -26,6 +26,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml'],
          */
 
         const getInputData = (inputContext) => {
+            // Cargar los pedidos de hoy
             return ['a', 'b', 'c'];
         }
 
@@ -91,6 +92,44 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml'],
          */
         const summarize = (summaryContext) => {
 
+        }
+
+        // Obtiene el listado de oportunidades a actualizar por sgcweb
+        const getOpportunities = (search) => {
+            var opportunitySearchObj = search.create({
+                type: "opportunity",
+                filters:
+                [
+                    ["entitystatus","anyof","11","10","20","19"], 
+                        "AND", 
+                    ["expectedclosedate","within","today"]
+                ],
+                columns:
+                [
+                    search.createColumn({
+                        name: "trandate",
+                        sort: search.Sort.ASC,
+                        label: "Fecha"
+                    }),
+                    search.createColumn({name: "tranid", label: "Número de documento"}),
+                    search.createColumn({name: "entity", label: "Cliente"}),
+                    search.createColumn({name: "memo", label: "Nota"}),
+                    search.createColumn({name: "transactionnumber", label: "Número de transacción"}),
+                    search.createColumn({name: "title", label: "Título"}),
+                    search.createColumn({name: "salesrep", label: "Representante de ventas"}),
+                    search.createColumn({name: "entitystatus", label: "Estado de oportunidad"}),
+                    search.createColumn({name: "projectedtotal", label: "Total previsto"}),
+                    search.createColumn({name: "rangelow", label: "Intervalo: bajo"}),
+                    search.createColumn({name: "rangehigh", label: "Intervalo: alto"}),
+                    search.createColumn({name: "custbody_otg_folio_aut", label: "Folio Aut."})
+                ]
+            });
+            var searchResultCount = opportunitySearchObj.runPaged().count;
+            log.debug("opportunitySearchObj result count",searchResultCount);
+            opportunitySearchObj.run().each(function(result){
+               // .run().each has a limit of 4,000 results
+               return true;
+            });
         }
 
         return {getInputData, map, reduce, summarize}

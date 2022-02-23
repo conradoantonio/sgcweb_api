@@ -48,7 +48,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml'],
         const afterSubmit = (scriptContext) => {
             try {
                 let idToken = login();
-                let rowItem = scriptContext.newRecord;// Get edited customer
+                let rowItem = scriptContext.newRecord;
 
                 if( scriptContext.type === scriptContext.UserEventType.CREATE ) {
                     log.debug('Info', 'Creación de articulo');

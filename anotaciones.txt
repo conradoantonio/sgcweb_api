@@ -1,0 +1,69 @@
+Solicitar mapeo de datos de netsuite para el cliente para empatarlos con SGCWEB
+
+
+Listado Extensiones
+NetSuite Advanced Field Help
+NetSuite Field Explorer
+NetSuite Scripted Records
+NetSuite: HTML Script Notes
+NetSuite: Show Field IDs
+
+Cliente es walmart
+Consumidor: Son todas sus franquicias, como zapopan, gdl, etc
+Servicios: Sólo aplica para gas estacionario
+
+Oportunidades (Son los pedidos en SGC web):
+Transacciones->ventas->oportunidades
+
+Un servicio es la ejecución del pedido, y hay que actualizar la oportunidad
+
+Productos->Son artículos de potogast (Netsuite)
+
+Preguntar cómo se realiza el módulo de servicios (el que se consulta directo de SGCWEB)
+
+
+getInputData: Se obtiene los servicios que se van a validar en el map, 
+map: se procesa cada linea (posición) del arreglo retornado del getinputdata
+
+
+Nota módulo clientes:
+Política de venta se encontrará en la subficha llamada política de venta
+Nota: Revisar el id en el drive
+
+Nota módulo oportunidades (pedidos):
+Utilizar la empresa Zulay Aponte PTG, para que en la sublista de artículos, pueda obtener uno llamado GAS LP
+Precio unitario -> rate en netsuite
+Preguntar a Manuel cómo sacar un dato de un subrecord
+
+Nota módulo artículos (Listas->contabilidad->artículos)
+Seleccionar el formulario personalizado PTG - Artículos de inventario
+
+En el map reduce:
+Hacer una búsqueda guardada en un rango de fechas de hoy, con el status de asignado donde el tipo de artículo sea "Estacionario"
+Sólo estos se van a editar
+
+<!-- Video para módulos de rutas y camiones de SGC web -->
+https://drive.google.com/file/d/1AhfwGo4z4LNttI2AsqCuh59bBRUx46KC/view
+
+Lista de usuario en unidades va a ir el id del conductor, este no se crea en sgcweb
+
+Política de venta se aplica a cliente
+"       "   consumo se aplica a consumidor
+
+///////////////////////////////////////
+
+1.- En Visual Studio Code abrir el proyecto de la carpeta POS.
+
+2.- En la terminal de Visual Studio Code se debe situar en la siguiente ruta \POS\electron se debe de ejecutar el siguiente comando npm install
+
+NOTA: Para abrir una carpeta se ejecuta el siguiente comando cd nombre (sustituir nombre por el nombre de la carpeta), para regresar a la carpeta anterior se ejecuta el comando cd ..
+
+3.- Dentro de la ruta \POS se ejecuta el siguiente comando npm install
+
+4.- En la misma ruta \POS se ejecuta el siguiente comando npm install -g electron-builder para que lo instale de manera global.
+
+5.- Ahora se ejecuta el siguiente comando npm run postinstall
+
+6.- En la ruta \POS se ejecuta el siguiente comando npm run build
+
+7.- En la misma ruta se ejecuta el siguiente comando npx cap copy
