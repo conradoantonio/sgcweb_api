@@ -231,7 +231,9 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml'],
                 type: "customrecord_ptg_articulos_por_zona_",
                 filters:
                 [
-                    ["internalid","anyof",rowItem.id]
+                    ["internalid","anyof",rowItem.id], 
+                    "AND", 
+                    ["custrecord_ptg_art_desc_.internalid","noneof","@NONE@"]
                 ],
                 columns:
                 [
@@ -253,6 +255,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml'],
                     search.createColumn({
                         name: "custrecord_ptg_cantidad_descuento_",
                         join: "CUSTRECORD_PTG_ART_DESC_",
+                        sort: search.Sort.ASC,
                         label: "PTG - Cantidad descuento"
                     }),
                     search.createColumn({

@@ -1,4 +1,19 @@
 <manifest projecttype="ACCOUNTCUSTOMIZATION">
   <projectname>Customers</projectname>
   <frameworkversion>1.0</frameworkversion>
+  <dependencies>
+    <features>
+      <feature required="false">MULTILANGUAGE</feature>
+      <feature required="true">SERVERSIDESCRIPTING</feature>
+      <feature required="false">CRM</feature>
+      <feature required="false">EXTREMELIST</feature>
+      <feature required="false">MAILMERGE</feature>
+      <feature required="true">CUSTOMRECORDS</feature>
+    </features>
+    <objects>
+      <object>customrecord_ptg_politicadeconsumo_</object>
+      <object>customrecord_ptg_articulos_por_zona_</object>
+      <object>customrecord_ptg_politicadeventa_</object>
+    </objects>
+  </dependencies>
 </manifest>
