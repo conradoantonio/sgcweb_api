@@ -13,6 +13,8 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
  * @param{xml} xml
  */
     (file, format, http, https, record, search, xml) => {
+        myCounter = 1;
+        // numServices = 0;
         /**
          * Defines the function that is executed at the beginning of the map/reduce process and generates the input data.
          * @param {Object} inputContext
@@ -27,28 +29,32 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
          */
 
         const getInputData = (inputContext) => {
+            let lastFolio = getLastFolio();
+            // log.debug('last folio', lastFolio);
             let arrayServices = [];
             try {
                 let idToken = login();
-                log.debug('Token ID', idToken);
                 let internalFileId = searchXmlFile(search);
-                let dataToSend = setData();
+                let dataToSend = setData(lastFolio);
 
                 // Se busca la información de la dirección por defecto
                 let xmlContent = file.load({ id: internalFileId }).getContents();
                 let typeModule = "Servicios";
-                let action = "registrar";
+                let action = "obtenerListaPorFolio";
 
                 let responseInfo = getServices(xmlContent, idToken, typeModule, action, dataToSend);
                 
                 // Esta lógica cambiaría, ya que se responseInfo traerá la respuesta de SGC y no directamente el arreglo de servicios
                 arrayServices = responseInfo;
-                log.debug('response info', responseInfo);
+                numServices = responseInfo.length;
+                // log.debug('response info', responseInfo);
+                log.debug('num services', numServices);
 
             } catch (error) {
                 log.debug('Algo salió mal en el método get input data', error);
             }
             return arrayServices;
+            // return [1];
         }
 
         /**
@@ -69,6 +75,9 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
          */
 
         const map = (mapContext) => {
+            log.debug('MC', 'Entró al mapcontext');
+            log.debug('key', mapContext.key);
+            // myCounter += 2;
             
             try {
                 // log.debug('map', mapContext);
@@ -82,9 +91,19 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                     //     script: 205       // Internal id of existing script record
                     // }
                 });
+
+                // Información primaria
+                let tipo_servicio = values.producto?.identificador_externo == 4088 ? 3 : 3;
+                newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipo_servicio});
+                newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1085});
+                
+                // Campos en clasificación
+                newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: 1});// Valor seteado de manera estática de forma temporal
+                // newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(values.tipo_pago ?? 1, values.importe_total ?? 0)});
     
-                newOpp.setValue({fieldId:'customform', value: 124});
-                newOpp.setValue({fieldId:'entity', value: values.cliente?.identificador_externo});
+                // newOpp.setValue({fieldId:'customform', value: 124});
+                newOpp.setValue({fieldId:'customform', value: 307});
+                newOpp.setValue({fieldId:'entity', value: values.consumidor ? values.consumidor.identificador_externo : 14508});
                 newOpp.setValue({fieldId:'entitystatus', value: 13});
                 newOpp.setValue({fieldId:'currency', value: 1});
 
@@ -92,17 +111,21 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                 newOpp.setValue({fieldId:'custbody_ptg_folio_carburacion_', value: values.folio});
                 newOpp.setText({fieldId:'custbody_ptg_dispensador_', text: values.folio_unidad});
                 newOpp.setText({fieldId:'custbody_ptg_vendedor_', text: values.vendedor?.nombre });
-                newOpp.setValue({fieldId:'custbody_ptg_tota_inicial_', value: values.totalizador_inicial ?? 0});
-                newOpp.setValue({fieldId:'custbody_ptg_totalizador_final_', value: values.totalizador_final ?? 0 });
+                newOpp.setValue({fieldId:'custbody_ptg_tota_inicial_', value: parseFloat(values.totalizador_inicial ?? 0).toFixed(2)});
+                newOpp.setValue({fieldId:'custbody_ptg_totalizador_final_', value: parseFloat(values.totalizador_final ?? 0).toFixed(2) });
                 newOpp.setValue({fieldId:'custbody_ptg_tipopago_carburacion_', value: values.tipo_pago ?? 1});
                 newOpp.setValue({fieldId:'custbody_ptg_estacion_', value: 2});
+                newOpp.setValue({fieldId:'custbody_ptg_equipo_', value: values.unidad?.identificador_externo});
+                newOpp.setValue({fieldId:'custbody_ptg_idcliente_', value: values.cliente ? values.cliente.identificador_externo : 14508});
+                newOpp.setValue({fieldId:'custbody_ptg_idconsumidor_', value: values.consumidor ? values.cliente.identificador_externo : 14508});
 
                 // Se agrega el producto de Gas LP a nivel artículo
                 newOpp.setSublistValue({
                     sublistId: 'item',
                     fieldId: 'item',
                     line: 0,
-                    value: values.producto?.identificador_externo
+                    value: 4088
+                    // value: values.producto?.identificador_externo
                 });
                 newOpp.setSublistValue({
                     sublistId: 'item',
@@ -119,7 +142,16 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
     
                 newOpp.save();
 
+                // folioOpp = values.folio;
+
+                // folioOpp.save();
+
                 log.debug('Info', 'Opotunidad guardada exitósamente');
+
+                mapContext.write({
+                    key: 1,
+                    value: values.folio
+                });
             } catch (error) {
                 log.debug('Algo salió mal', error);
             }
@@ -141,7 +173,7 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
          * @since 2015.2
          */
         const reduce = (reduceContext) => {
-
+            log.debug('reduce', reduceContext);
         }
 
 
@@ -261,10 +293,11 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
         }
 
         // Configura la data
-        const setData = () => {
+        const setData = (lastFolio) => {
             let example = {
                 "busqueda":{ 
-                    "folioPosicion":"17852", 
+                    // "folioPosicion":"17852",
+                    "folioPosicion":lastFolio,
                     "cantidadElementos":"1" 
                 },
                 "atributosVenta":{
@@ -340,7 +373,7 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                     "importe_impuesto":"69.2400",
                     "vendedor":{
                         "identificador_externo":null,
-                        "nombre":"Vendedor 2137"
+                        "nombre":"Vendedor 2051"
                     },       
                     "pedido":{
                         "identificador_externo":null,
@@ -356,21 +389,95 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                         "longitud_grados_decimales":"10102.0684"
                     },
                     "producto":{
-                        "identificador_externo":1753
+                        "identificador_externo":4088
                     },
                     "unidad":{
-                        "identificador_externo":"2137"
+                        "identificador_externo":"2051"
                     },
                     "cliente":{
-                        "identificador_externo":"42229"
+                        "identificador_externo":"14291"
                     },
                     "consumidor":{
-                        "identificador_externo":"42251"
+                        "identificador_externo":"14291"
+                    }
+                },
+                {
+                    "folio":"17853",
+                    "importe_total":"503.0000",
+                    "fecha_inicio":"2021-10-08 01:19:48",
+                    "fecha_fin":"2021-10-0801:20:22",
+                    "unidad_medida":"Litro",
+                    "cantidad":"34.0000",
+                    "estado":"Terminado",
+                    "folio_unidad":"1562",
+                    "totalizador_inicial":"128835.0000",
+                    "totalizador_final":"128869.0000",
+                    "tipo_pago":"1",
+                    "subtotal":"432.7600",
+                    "tasa_impuesto":"17.0000",
+                    "precio_unitario_neto":"15.3500",
+                    "valor_unitario":"13.3707",
+                    "importe_impuesto":"80.2400",
+                    "vendedor":{
+                        "identificador_externo":null,
+                        "nombre":"Vendedor 2051"
+                    },       
+                    "pedido":{
+                        "identificador_externo":null,
+                        "fecha_atencion":null,
+                        "fecha_servicio":null,
+                        "estatus":null,
+                        "folio":null
+                    },
+                    "posicion_gps":{
+                        "latitud_indicador":"N",
+                        "latitud_grados_decimales":"2208.3528",
+                        "longitud_indicador":"W",
+                        "longitud_grados_decimales":"10102.0684"
+                    },
+                    "producto":{
+                        "identificador_externo":4088
+                    },
+                    "unidad":{
+                        "identificador_externo":"2051"
+                    },
+                    "cliente":{
+                        "identificador_externo":"14291"
+                    },
+                    "consumidor":{
+                        "identificador_externo":"14291"
                     }
                 }
             ];
 
             return services;
+        }
+
+        // Obtiene el último folio guardado en Netsuite
+        const getLastFolio = () => {
+            let lastFolio = search.lookupFields({
+                type: 'customrecord_ptg_folio_counter',
+                id: 1,
+                columns: ['internalid', 'custrecord_ptg_folio_counter']
+            });
+
+            return lastFolio.custrecord_ptg_folio_counter;
+        }
+
+        // Configura el json del método de pago
+        const setMetodoPago = (tipo_pago, monto) => {
+            let arrPagos = [
+                {
+                    "tipo_pago":tipo_pago,
+                    "monto":monto
+                }
+            ];
+            // let arrPagos = [{"tipo_pago":"1","monto":100.8},{"tipo_pago":"2","monto":50}];
+            let objPago = {
+                "pago":arrPagos
+            };
+
+            return JSON.stringify(objPago);
         }
 
         return {getInputData, map, reduce, summarize}

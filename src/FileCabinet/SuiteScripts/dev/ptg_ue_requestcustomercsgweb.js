@@ -2,14 +2,14 @@
  * @NApiVersion 2.1
  * @NScriptType UserEventScript
  */
-define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
+define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
     /**
  * @param{file} file
  * @param{http} http
  * @param{search} search
  * @param{xml} xml
  */
-    (file, http, search, xml, record) => {
+    (file, http, search, xml, record, query) => {
         /**
          * Defines the function definition that is executed before record is loaded.
          * @param {Object} scriptContext
@@ -70,7 +70,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
                     let typeModule = "Clientes";
                     let action = "registrar";
 
-                    let responseInfo = registerCustomer(xmlContent, idToken, typeModule, action, dataToSend);
+                    let responseInfo = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
 
                     log.debug('response info', responseInfo);
 
@@ -97,66 +97,114 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
                     //////////////////////////////////////////////////////////////////////////////
                 }
                 else if ( scriptContext.type === scriptContext.UserEventType.EDIT ) {
-                    let rowCustomer = scriptContext.newRecord;// Get edited customer
-                    let internalFileId = searchXmlFile(search);
-                    let dirDefault = searchDefaultAddress(search, rowCustomer);
-                    let isConsumer = rowCustomer.getValue({fieldId:'parent'});
-
                     log.debug('Info', 'Edición de cliente');
-                    log.debug('parent', rowCustomer.getValue({fieldId:'parent'}));
-                    log.debug('Politica de venta', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeventa_'}));
-                    log.debug('Politica de consumo', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}));
+
+                    let rowCustomer = scriptContext.newRecord;// Get edited customer
+                    let internalFileId = searchXmlFile();
+                    let customerAddresses = searchCustomerAddresses(rowCustomer.id);
+                    // let dirDefault = searchDefaultAddress(search, rowCustomer);
+                    // let isConsumer = rowCustomer.getValue({fieldId:'parent'});
+                    // log.debug('Alianza comercial', rowCustomer.getValue({fieldId: 'custentity_ptg_alianza_comercial_cliente'}));
+                    // log.debug('Alianza comercial texto', rowCustomer.getText({fieldId: 'custentity_ptg_alianza_comercial_cliente'}));
+                    // log.debug('Límite de crédito', rowCustomer.getValue({fieldId: 'creditlimit'}));
+                    // log.debug('Politica de venta', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeventa_'}));
+                    // log.debug('Politica de consumo', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}));
                     
                     log.debug('Xml ID', internalFileId);
-                    log.debug('formato de direccion', dirDefault);
+                    log.debug('Listado de direcciones', customerAddresses);
                     // log.debug('data customer', dataToSend);
 
-                    let typeModule = action = dataToSend = responseInfo = '';
+                    let typeModule = action = responseConsPol = '';
                     let xmlContent = file.load({ id: internalFileId }).getContents();
-                    
-                    if ( isConsumer ) { // Se da de alta un consumidor
-                        
-                        typeModule = "Consumidores";
-                        action = "registrar";
-                        dataToSend = setDataConsumer(rowCustomer, null, dirDefault, 'edit');
-                        responseInfo = registerCustomer(xmlContent, idToken, typeModule, action, dataToSend);
-                        log.debug('Info', 'Entró a registrar un consumidor');
-                    
-                    } else { // Se da de alta un cliente
-                    
-                        typeModule = "Clientes";
-                        action = "registrar";
-                        dataToSend = setDataCustomer(rowCustomer, null, dirDefault, 'edit');
-                        responseInfo = registerCustomer(xmlContent, idToken, typeModule, action, dataToSend);
-                        log.debug('Info', 'Entró a registrar un cliente');
-                    
-                    }
 
-                    log.debug('response info', responseInfo);
+                    // Se da de alta la política de venta
+                    typeModule = "PoliticasVenta";
+                    action = "registrar";
+                    dataSalesPolicy = setDataSalesPolicy(rowCustomer, null, 'edit');
+                    responseConsPol = registerSgcData(xmlContent, idToken, typeModule, action, dataSalesPolicy);
+                    log.debug('Info', 'Entró a registrar una política de venta');
 
-                    // Se validará que haya salido bien el response
-                    if (["1111", "0000"].includes(responseInfo.code[0].textContent) ) {
-                        log.debug('Response code info', 'Todo salió bien');
-                        if ( isConsumer ) { // Se registró un consumidor
-                            log.debug('respuesta', 'Consumidor registrado');
-                        } else { // Se registró un cliente
-                            let realResult = JSON.parse(responseInfo.info[0].textContent);
-                            log.debug('respuesta sgcweb', realResult);
-                            log.debug('numero de cliente de sgcweb', realResult.numero_cliente);
-
-                            // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
-                            record.submitFields({
-                                type: record.Type.CUSTOMER,
-                                id: rowCustomer.id,
-                                values: {
-                                    'custentity_ptg_codigodecliente_': realResult.numero_cliente
-                                }
-                            });
-                            log.debug('Actualización', 'Código de cliente actualizado');
-                        }
+                    if (["1111", "0000"].includes(responseConsPol.code[0].textContent) ) {
+                        log.debug('SGC', 'Política de venta registrada');
+                        log.debug('Respuesta sgcweb política de venta', responseConsPol.info);
                     } else {
-                        log.debug('Ocurrió un error', responseInfo.code[0].textContent);
+                        log.debug('Ocurrió un error', responseConsPol.code[0].textContent);
                     }
+
+                    // Se da de alta el cliente
+                    typeModule = "Clientes";
+                    action = "registrar";
+                    dataCustomer = setDataCustomer(rowCustomer, null, dataSalesPolicy.identificador_externo, customerAddresses.default, 'edit');
+                    responseCustomer = registerSgcData(xmlContent, idToken, typeModule, action, dataCustomer);
+                    log.debug('Info', 'Entró a registrar un cliente');
+
+                    if (["1111", "0000"].includes(responseCustomer.code[0].textContent) ) {
+                        log.debug('SGC', 'Cliente registrado correctamente');
+                        let realResult = JSON.parse(responseCustomer.info[0].textContent);
+                        log.debug('Respuesta sgcweb cliente', realResult);
+                        log.debug('Número de cliente de sgcweb', realResult.numero_cliente);
+
+                        // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
+                        record.submitFields({
+                            type: record.Type.CUSTOMER,
+                            id: rowCustomer.id,
+                            values: {
+                                'custentity_ptg_codigodecliente_': realResult.numero_cliente
+                            }
+                        });
+                        log.debug('Actualización', 'Código de cliente actualizado');
+                    } else {
+                        log.debug('Ocurrió un error', responseCustomer.code[0].textContent);
+                    }
+                    // return 'Hola';
+
+                    // Se dan de alta los registros de consumidores y políticas de consumo
+                    let allAddress = customerAddresses.addresses;
+                    for (let j = 0; j < allAddress.length; j++) {
+                        typeModule = "PoliticasConsumo";
+                        action = "registrar";
+                        dataConsumptionPolicy = setDataConsumptionPolicy(rowCustomer, allAddress[j], 'edit');
+                        responseConsumptionPolicy = registerSgcData(xmlContent, idToken, typeModule, action, dataConsumptionPolicy);
+                        log.debug('Info', 'Entró a registrar una política de consumo');
+
+                        // Se validará que haya salido bien el response
+                        if (["1111", "0000"].includes(responseConsumptionPolicy.code[0].textContent) ) {
+                            log.debug('SGC', 'Política de consumo registrada');
+                            log.debug('Respuesta sgcweb política de consumo', responseConsumptionPolicy.info);
+
+                            // Se da de alta el consumidor junto con su política de consumo recién creada
+                            typeModule = "Consumidores";
+                            action = "registrar";
+                            dataConsumer = setDataConsumer(rowCustomer, null, dataConsumptionPolicy.identificador_externo, dataCustomer.identificador_externo, allAddress[j], 'edit');
+                            responseConsumer = registerSgcData(xmlContent, idToken, typeModule, action, dataConsumer);
+                            log.debug('Info', 'Entró a registrar un consumidor');
+
+                            if (["1111", "0000"].includes(responseConsumer.code[0].textContent) ) {
+                                log.debug('SGC', 'Consumidor registrado correctamente');
+                                let realResult = JSON.parse(responseConsumer.info[0].textContent);
+                                log.debug('Respuesta sgcweb consumidor', realResult);
+                                log.debug('Número de consumidor de sgcweb', realResult.numero_consumidor);
+        
+                                // Se edita el campo custentity_ptg_numero_consumidor para empatarlo con SGC Web
+                                // record.submitFields({
+                                //     type: record.Type.CUSTOMER,
+                                //     id: rowCustomer.id,
+                                //     values: {
+                                //         'custentity_ptg_codigodecliente_': realResult.numero_consumidor
+                                //     }
+                                // });
+                                // log.debug('Actualización', 'Código de cliente actualizado');
+                            } else {
+                                log.debug('Ocurrió un error', responseConsumer.code[0].textContent);
+                            }
+                        } else {
+                            log.debug('Ocurrió un error', responseConsumptionPolicy.code[0].textContent);
+                        }
+
+                        
+                    }
+                    
+                    return {'msg':'Éxito guardando datos en SGC web', 'status' : 'success'};
                 }
 
             } catch (error) {
@@ -220,7 +268,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
         }
 
         // Busqueda guardada para obtener el archivo xml de peticiones a la api de SGC web
-        const searchXmlFile = (search) => {
+        const searchXmlFile = () => {
             // log.debug('info', 'entró a la función de buscar archivo xml para peticiones');
             let internalFileId;
             let fileSearchObj = search.create({
@@ -257,183 +305,326 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record'],
         }
 
         // Configura los datos a enviar del cliente a SGC web
-        const setDataCustomer = (rowCustomer, aditionalCustomerInfo = false, dirDefault, type) => {
+        const setDataCustomer = (rowCustomer, aditionalCustomerInfo = false, politicaId, defaultAddress, type) => {
             // log.debug('info', 'entró a la función de configurar la información del cliente');
 
-            let nombre    = ( type == 'edit' ? rowCustomer.getText({fieldId:'companyname'}) : aditionalCustomerInfo?.companyname );
+            let nombre    = ( type == 'edit' ? rowCustomer.getText({fieldId:'altname'}) : aditionalCustomerInfo?.altname );
+            // let nombre    = ( type == 'edit' ? rowCustomer.getText({fieldId:'companyname'}) : aditionalCustomerInfo?.companyname );
             let rfc       = ( type == 'edit' ? rowCustomer.getText({fieldId:'custentity_mx_rfc'}) : rowCustomer.getValue({fieldId:'custentity_mx_rfc'}) );
             let telefono1 = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : rowCustomer.getValue({fieldId:'phone'}) );
             let telefono2 = ( type == 'edit' ? rowCustomer.getText({fieldId:'altphone'}) : rowCustomer.getValue({fieldId:'altphone'}) );
             let email     = ( type == 'edit' ? rowCustomer.getText({fieldId:'email'}) : rowCustomer.getValue({fieldId:'email'}) );
-            let politica  = ( type == 'edit' ? rowCustomer.getValue({fieldId:'custentity_ptg_politicadeventa_'}) : rowCustomer.getValue({fieldId:'custentity_ptg_politicadeventa_'}) );
+            let saldo     = ( type == 'edit' ? rowCustomer.getText({fieldId:'balance'}) : rowCustomer.getValue({fieldId:'balance'}) );
+            saldo = ( saldo ? Number( parseFloat( saldo ).toFixed(2) ) : 0.00);
 
             let data = {
                 "numero_cliente":"",
-                "identificador_externo": rowCustomer.id,
+                "identificador_externo": "0000"+rowCustomer.id,
                 "nombre":nombre ? nombre : "Nombre cliente",
-                "rfc":rfc ?? "",
-                "calle":dirDefault['calle'] ?? "",
-                "no_exterior":dirDefault['no_exterior'] ?? "",
-                "no_interior":dirDefault['no_interior'] ?? "",
-                "colonia":dirDefault['colonia'] ?? "",
-                "localidad":dirDefault['localidad'] ?? "",
-                "referencia":dirDefault['referencia'] ?? "",
-                "ciudad":dirDefault['ciudad'] ?? "",
-                "estado":dirDefault['estado'] ?? "",
-                "codigo_postal":( dirDefault['codigo_postal'] && dirDefault['codigo_postal'] != '' ? dirDefault['codigo_postal'] : "31135" ),
-                "pais":dirDefault['pais'] ?? "",
+                "rfc":rfc ? rfc : "XAXX010101000",
+                "calle":defaultAddress.calle ?? "",
+                "no_exterior":defaultAddress.numExt ?? "",
+                "no_interior":defaultAddress.numInt ?? "",
+                "colonia":defaultAddress.colonia ?? "",
+                "localidad":defaultAddress.ciudad ?? "",
+                "referencia":defaultAddress.entreCalle1 ?? "",
+                "ciudad":defaultAddress.ciudad ?? "",
+                "estado":defaultAddress.estado ?? "",
+                "codigo_postal":( defaultAddress.codigo_postal ?? "31135" ),
+                "pais":defaultAddress.pais ?? "",
                 "telefono1":telefono1 ? telefono1 : "industrial",
                 "telefono2":telefono2 ?? "",
                 "activo":"1",
                 "email":email ?? "",
-                "saldo":"",
-                "politica_venta_id":politica ?? ""
+                "saldo":saldo,
+                "politica_venta_id":politicaId ?? ""
             };
 
             return data;
         }
 
         // Configura los datos a enviar del consumidor a SGC web
-        const setDataConsumer = (rowCustomer, aditionalConsumerInfo = false, dirDefault, type) => {
+        const setDataConsumer = (rowCustomer, aditionalCustomerInfo = false, politicaId, clienteId, address, type) => {
             // log.debug('info', 'entró a la función de configurar la información del cliente');
 
             let nombre     = ( type == 'edit' ? rowCustomer.getText({fieldId:'altname'}) : aditionalConsumerInfo?.companyname );
             let telefono1  = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : rowCustomer.getValue({fieldId:'phone'}) );
             let telefono2  = ( type == 'edit' ? rowCustomer.getText({fieldId:'altphone'}) : rowCustomer.getValue({fieldId:'altphone'}) );
             let email      = ( type == 'edit' ? rowCustomer.getText({fieldId:'email'}) : rowCustomer.getValue({fieldId:'email'}) );
-            let cliente_id = ( type == 'edit' ? rowCustomer.getValue({fieldId:'parent'}) : rowCustomer.getValue({fieldId:'parent'}) );
-            let politica   = ( type == 'edit' ? rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}) : rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}) );
+            let saldo     = ( type == 'edit' ? rowCustomer.getText({fieldId:'balance'}) : rowCustomer.getValue({fieldId:'balance'}) );
+            saldo = ( saldo ? Number( parseFloat( saldo ).toFixed(2) ) : 0.00);
 
             let data = {
                 "numero_consumidor":"",
-                "identificador_externo": rowCustomer.id,
-                "nombres":nombre ? nombre : "Nombre cliente",
+                "identificador_externo": "0000"+address.id+address.label,
+                "nombres":nombre ? nombre : "Nombre consumidor",
                 "apellidos":"Doe",
                 "telefono1":telefono1 ? telefono1 : "industrial",
                 "telefono2":telefono2 ?? "",
-                "descripcion":"Descripción de subcliente",
-                "comentario":"Comentario de subcliente",
-                "calle_numero":dirDefault['no_exterior'] ?? "",
-                "colonia":dirDefault['colonia'] ?? "",
-                "ciudad":dirDefault['ciudad'] ?? "",
-                "estado":dirDefault['estado'] ?? "",
-                "pais":dirDefault['pais'] ?? "",
-                "codigo_postal":( dirDefault['codigo_postal'] && dirDefault['codigo_postal'] != '' ? dirDefault['codigo_postal'] : "31135" ),
+                "descripcion":"Consumidor de cliente "+clienteId,
+                "comentario" :"",
+                "calle_numero":address.numExt ?? "",
+                "colonia":address.colonia ?? "",
+                "ciudad":address.ciudad ?? "",
+                "estado":address.estado ?? "",
+                "pais":address.pais ?? "",
+                "codigo_postal":( address.codigo_postal ?? "31135" ),
                 "email":email ?? "",
-                "saldo":"",
+                "saldo":saldo,
                 "tipo_consumidor_id":"",
-                "politica_consumo_id":politica ?? "",
-                "cliente_id":cliente_id,
-                "capacidad":"2",
+                "politica_consumo_id":politicaId ?? "",
+                "cliente_id":clienteId,
+                "capacidad":"150",
                 "tipo_pago":"",
-                "numero_verificador":""
+                "numero_verificador":address.label,
+                "ruta_id":""
             };
+            // Falta la lógica para obtener la ruta asignada, tipo de cliente (campo tipo_consumidor)
 
             log.debug('info consumidor', data);
 
             return data;
         }
 
+        // Configura los datos a enviar para las políticas de consumo
+        const setDataSalesPolicy = (rowCustomer, aditionalConsumerInfo = false, type) => {
+            // log.debug('info', 'entró a la función de setear la política de venta');
+
+            let limite_credito = ( type == 'edit' ? rowCustomer.getValue({fieldId: 'creditlimit'}) : rowCustomer.getValue({fieldId: 'creditlimit'}) );
+            let tipo_pago      = ( type == 'edit' ? rowCustomer.getValue({fieldId: 'custentity_ptg_alianza_comercial_cliente'}) : rowCustomer.getValue({fieldId:'custentity_ptg_alianza_comercial_cliente'}) );
+
+            limite_credito = ( limite_credito ? Number( parseFloat(limite_credito) ) : '' );
+            tipo_pago      = ( tipo_pago == 2 ? 2 : ( tipo_pago == 3 ? 1 : '' ) );
+
+            let data = {
+                "nombre":"Política de venta para cliente 0000"+rowCustomer.id,
+                "identificador_externo":"PV0000"+rowCustomer.id,
+                "activa":"1",
+                "tipo_pago":tipo_pago,
+                "limite_credito":limite_credito,
+                "numero_semanas_credito":1,
+                "frecuencia_factura":0,
+                "facturar_todos_servicios":0,
+                "facturar_servicios_vpg":0,
+                "recordatorio_pago":0,
+                "recordatorio_pago_dias":0,
+                "notificar_limite_credito":0,
+                "bloqueo_morosidad":0
+            };
+
+            log.debug('info política de venta', data);
+
+            return data;
+        }
+
+        // Configura los datos a enviar para las políticas de consumo
+        const setDataConsumptionPolicy = (rowCustomer, address, type) => {
+            // log.debug('info', 'entró a la función de configurar la información del cliente');
+
+            let nombre = address.territorioZona;
+            let limite_credito = ( type == 'edit' ? rowCustomer.getText({fieldId:'creditlimit'}) : rowCustomer.getValue({fieldId:'creditlimit'}) );
+            let descuento = ( type == 'edit' ? rowCustomer.getValue({fieldId:'custentity_ptg_descuento_asignar'}) : rowCustomer.getValue({fieldId:'custentity_ptg_descuento_asignar'}) );
+            let splitDesc = ( descuento ? descuento.split('.') : '00');
+            limite_credito = (limite_credito ? Number(parseInt(limite_credito)) : 0.00);
+            let centavos = ( splitDesc[1] ? splitDesc[1] : '00' );
+            // centavos = ( centavos == '00' ? '00' : );
+            // Falta lógica para aplicar los descuentos aquí
+
+            let data = {
+                "nombre":nombre,
+                "identificador_externo":"L"+(centavos)+nombre,
+                "activa":"1",
+                "tipo_pago":0,
+                "limite_credito":limite_credito,
+                "hora_inicial":"00:00",
+                "hora_final":"23:45",
+                "numero_servicios":1,
+                "restringir_gps":0,
+                "restringir_tag":0,
+                "impuesto_id":"",
+                "descuento_id":"",
+                "ticket_servicios_id":""
+            };
+
+            log.debug('info política de consumo', data);
+
+            return data;
+        }
+
         // Busca la dirección por defecto del cliente
-        const searchDefaultAddress = (search, rowCustomer) => {
-            // log.debug('info', 'entró a la función de buscar la dirección por defecto');
-            // Búsqueda personalizada para la dirección por defecto del cliente
-            var customerSearchObj = search.create({
-                type: "customer",
-                filters:
-                [
-                   ["internalid","anyof",rowCustomer.id],
-                   "AND", 
-                   ["isdefaultshipping","is","T"]
-                ],
-                columns:
-                [
-                   search.createColumn({
-                      name: "custrecord_ptg_estado",
-                      join: "Address",
-                      label: "PTG - ESTADO"
-                   }),
-                   search.createColumn({
-                      name: "custrecord_ptg_colonia_ruta",
-                      join: "Address",
-                      label: "PTG - COLONIA Y RUTA"
-                   }),
-                   search.createColumn({
-                      name: "custrecord_ptg_exterior_number",
-                      join: "Address",
-                      label: "Exterior Number"
-                   }),
-                   search.createColumn({
-                      name: "custrecord_ptg_interior_number",
-                      join: "Address",
-                      label: "Interior Number"
-                   }),
-                   search.createColumn({
-                      name: "isdefaultshipping",
-                      join: "Address",
-                      label: "Dirección de envío predeterminada"
-                   }),
-                   search.createColumn({
-                      name: "custrecord_ptg_address_reference",
-                      join: "Address",
-                      label: "Address Reference"
-                   }),
-                   search.createColumn({
-                      name: "custrecord_ptg_street",
-                      join: "Address",
-                      label: "Street"
-                   }),
-                   search.createColumn({
-                     name: "custrecord_ptg_codigo_postal",
-                     join: "Address",
-                     label: "PTG - CODIGO POSTAL"
-                   }),
-                   search.createColumn({
-                      name: "custrecord_ptg_town_city",
-                      join: "Address",
-                      label: "Town/City"
-                   }),
-                   search.createColumn({name: "country", label: "País"})
-                ]
-            });
+        // const searchDefaultAddress = (search, rowCustomer) => {
+        //     // log.debug('info', 'entró a la función de buscar la dirección por defecto');
+        //     // Búsqueda personalizada para la dirección por defecto del cliente
+        //     var customerSearchObj = search.create({
+        //         type: "customer",
+        //         filters:
+        //         [
+        //            ["internalid","anyof",rowCustomer.id],
+        //            "AND", 
+        //            ["isdefaultshipping","is","T"]
+        //         ],
+        //         columns:
+        //         [
+        //            search.createColumn({
+        //               name: "custrecord_ptg_estado",
+        //               join: "Address",
+        //               label: "PTG - ESTADO"
+        //            }),
+        //            search.createColumn({
+        //               name: "custrecord_ptg_colonia_ruta",
+        //               join: "Address",
+        //               label: "PTG - COLONIA Y RUTA"
+        //            }),
+        //            search.createColumn({
+        //               name: "custrecord_ptg_exterior_number",
+        //               join: "Address",
+        //               label: "Exterior Number"
+        //            }),
+        //            search.createColumn({
+        //               name: "custrecord_ptg_interior_number",
+        //               join: "Address",
+        //               label: "Interior Number"
+        //            }),
+        //            search.createColumn({
+        //               name: "isdefaultshipping",
+        //               join: "Address",
+        //               label: "Dirección de envío predeterminada"
+        //            }),
+        //            search.createColumn({
+        //               name: "custrecord_ptg_address_reference",
+        //               join: "Address",
+        //               label: "Address Reference"
+        //            }),
+        //            search.createColumn({
+        //               name: "custrecord_ptg_street",
+        //               join: "Address",
+        //               label: "Street"
+        //            }),
+        //            search.createColumn({
+        //              name: "custrecord_ptg_codigo_postal",
+        //              join: "Address",
+        //              label: "PTG - CODIGO POSTAL"
+        //            }),
+        //            search.createColumn({
+        //               name: "custrecord_ptg_town_city",
+        //               join: "Address",
+        //               label: "Town/City"
+        //            }),
+        //            search.createColumn({name: "country", label: "País"})
+        //         ]
+        //     });
             
-            let dirDefault = {};
-            var searchResultCount = customerSearchObj.runPaged().count;
-            // log.debug("customerSearchObj result count",searchResultCount);
-            customerSearchObj.run().each(function(result){
-                let resDireccion = result.getAllValues();
-                let isDefault = resDireccion['Address.isdefaultshipping'];
+        //     let dirDefault = {};
+        //     var searchResultCount = customerSearchObj.runPaged().count;
+        //     // log.debug("customerSearchObj result count",searchResultCount);
+        //     customerSearchObj.run().each(function(result){
+        //         let resDireccion = result.getAllValues();
+        //         let isDefault = resDireccion['Address.isdefaultshipping'];
 
-                if ( isDefault == true ) {
-                    dirDefault['no_exterior']   = resDireccion['Address.custrecord_ptg_exterior_number'];
-                    dirDefault['no_interior']   = resDireccion['Address.custrecord_ptg_interior_number'];
-                    dirDefault['estado']        = resDireccion['Address.custrecord_ptg_estado'];
-                    dirDefault['calle']         = resDireccion['Address.custrecord_ptg_street'];
-                    dirDefault['colonia']       = resDireccion['Address.custrecord_ptg_colonia_ruta'][0]?.text;
-                    dirDefault['localidad']     = resDireccion['Address.custrecord_ptg_town_city'];
-                    dirDefault['referencia']    = resDireccion['Address.custrecord_ptg_address_reference'];
-                    dirDefault['ciudad']        = resDireccion['Address.custrecord_ptg_town_city'];
-                    dirDefault['codigo_postal'] = resDireccion['Address.custrecord_ptg_codigo_postal'];
-                    dirDefault['pais']          = resDireccion.country[0].text;
-                }
+        //         if ( isDefault == true ) {
+        //             dirDefault['no_exterior']   = resDireccion['Address.custrecord_ptg_exterior_number'];
+        //             dirDefault['no_interior']   = resDireccion['Address.custrecord_ptg_interior_number'];
+        //             dirDefault['estado']        = resDireccion['Address.custrecord_ptg_estado'];
+        //             dirDefault['calle']         = resDireccion['Address.custrecord_ptg_street'];
+        //             dirDefault['colonia']       = resDireccion['Address.custrecord_ptg_colonia_ruta'][0]?.text;
+        //             dirDefault['localidad']     = resDireccion['Address.custrecord_ptg_town_city'];
+        //             dirDefault['referencia']    = resDireccion['Address.custrecord_ptg_address_reference'];
+        //             dirDefault['ciudad']        = resDireccion['Address.custrecord_ptg_town_city'];
+        //             dirDefault['codigo_postal'] = resDireccion['Address.custrecord_ptg_codigo_postal'];
+        //             dirDefault['pais']          = resDireccion.country[0].text;
+        //         }
 
-                // log.debug('pais', resDireccion.country[0].text)
-                // log.debug('res direccion', resDireccion);
-                // log.debug('Estado', resDireccion['Address.custrecord_ptg_estado']);
+        //         // log.debug('pais', resDireccion.country[0].text)
+        //         // log.debug('res direccion', resDireccion);
+        //         // log.debug('Estado', resDireccion['Address.custrecord_ptg_estado']);
 
-                // dirPre = result.getValue({ name: "internalid", label: "Internal ID" });
-                // log.debug('direccion',result.getValue({ name: "internalid", label: "Internal ID" }));
-                // log.debug('direccion_ptg_estado value', result.getValue({name: "custrecord_ptg_estado", label: "PTG - ESTADO"}));
-                // log.debug('direccion_ptg_estado text', result.getText({name: "custrecord_ptg_estado", label: "PTG - ESTADO"}));
-                // .run().each has a limit of 4,000 results
+        //         // dirPre = result.getValue({ name: "internalid", label: "Internal ID" });
+        //         // log.debug('direccion',result.getValue({ name: "internalid", label: "Internal ID" }));
+        //         // log.debug('direccion_ptg_estado value', result.getValue({name: "custrecord_ptg_estado", label: "PTG - ESTADO"}));
+        //         // log.debug('direccion_ptg_estado text', result.getText({name: "custrecord_ptg_estado", label: "PTG - ESTADO"}));
+        //         // .run().each has a limit of 4,000 results
+        //         return true;
+        //     });
+
+        //     return dirDefault;
+        // }
+
+        // Query que obtiene las direcciones del cliente creado
+        const searchCustomerAddresses = (customerId) => {
+            let addressObj = {
+                default : '',
+                addresses : []
+            };
+            let sql = 
+            'SELECT customerAddressbook.entity as idCliente, customerAddressbook.internalId as idDireccion, zip, customerAddressbook.label as etiqueta,'+
+            'customerAddressbook.defaultshipping as envioPredeterminado, customerAddressbook.defaultbilling as facturacionPredeterminada,'+
+            'customerAddressbookEntityAddress.custrecord_ptg_colonia_ruta as idColoniaRuta, customerAddressbookEntityAddress.custrecord_ptg_nombre_colonia as nombreColonia,'+
+            'customerAddressbookEntityAddress.custrecord_ptg_exterior_number as numeroExterior, customerAddressbookEntityAddress.custrecord_ptg_interior_number as numeroInterior,'+
+            'customerAddressbookEntityAddress.custrecord_ptg_estado as estado, customerAddressbookEntityAddress.city as ciudad, customerAddressbookEntityAddress.country as pais,'+
+            'customerAddressbookEntityAddress.custrecord_ptg_street as calle, '+
+            'customerAddressbookEntityAddress.custrecord_ptg_entrecalle_ as entreCalle1, customerAddressbookEntityAddress.custrecord_ptg_y_entre_ as entreCalle2,'+
+            'CUSTOMRECORD_PTG_COLONIASRUTAS_.custrecord_ptg_zona_de_precio_ as idZonaPrecio,'+
+            'CUSTOMRECORD_PTG_ZONASDEPRECIO_.name as nombreZona, CUSTOMRECORD_PTG_ZONASDEPRECIO_.custrecord_ptg_precio_ as precioZona, custrecord_ptg_territorio_ as territorioZona '+
+
+            'FROM customerAddressbook '+
+
+            'left join customerAddressbookEntityAddress on customerAddressbook.addressbookaddress = customerAddressbookEntityAddress.nkey '+
+            'left join CUSTOMRECORD_PTG_COLONIASRUTAS_ on customerAddressbookEntityAddress.custrecord_ptg_colonia_ruta = CUSTOMRECORD_PTG_COLONIASRUTAS_.id '+
+            'left join CUSTOMRECORD_PTG_ZONASDEPRECIO_ on CUSTOMRECORD_PTG_COLONIASRUTAS_.custrecord_ptg_zona_de_precio_ = CUSTOMRECORD_PTG_ZONASDEPRECIO_.id '+
+
+            'WHERE customerAddressbook.entity ='+ customerId;
+
+            let resultIterator = query.runSuiteQLPaged({
+                query: sql,
+                pageSize: 1000
+            }).iterator();
+
+            resultIterator.each(function (page) {
+                let pageIterator = page.value.data.iterator();
+                pageIterator.each(function (row) {
+                    let address = {};
+                    log.debug('Row de query pura', row);
+                    if(!!row.value.getValue(0)) {
+                        address.id = row.value.getValue(1);
+                        address.codigo_postal = row.value.getValue(2);
+                        address.etiqueta = row.value.getValue(3);
+                        address.defaultShipping = row.value.getValue(4);
+                        address.defaultBilling = row.value.getValue(5);
+                        address.colonia = row.value.getValue(7);
+                        address.numExt = row.value.getValue(8);
+                        address.numInt = row.value.getValue(9);
+                        address.estado = row.value.getValue(10);
+                        address.ciudad = row.value.getValue(11);
+                        address.pais = row.value.getValue(12);
+                        address.calle = row.value.getValue(13);
+                        address.entreCalle1 = row.value.getValue(14);
+                        address.entreCalle2 = row.value.getValue(15);
+                        address.idZona = row.value.getValue(16);
+                        address.nombreZona = row.value.getValue(17);
+                        address.precioZona = row.value.getValue(18);
+                        address.territorioZona = row.value.getValue(19);
+                        // obj.text = `${row.value.getValue(1)} - ${row.value.getValue(2)} - ${row.value.getValue(3)}`;
+                        
+                        // Es la dirección por default
+                        if ( address.defaultShipping == "T" ) {
+                            addressObj.default = address;
+                        }
+                        // Se hace el push del objeto de la dirección al arreglo de direcciones a retornar
+                        addressObj.addresses.push(address);
+                    }
+                    
+                    return true;
+                });
                 return true;
             });
 
-            return dirDefault;
+            // log.debug('Data sql', data);
+
+            return addressObj;
         }
 
         // Guarda / actualiza un cliente en SGC web
-        const registerCustomer = (xmlContent, idToken, typeModule, action, data) => {
+        const registerSgcData = (xmlContent, idToken, typeModule, action, data) => {
             xmlContent = xmlContent.split('idSession').join(`${idToken}`);
             xmlContent = xmlContent.split('typeModule').join(`${typeModule}`);
             xmlContent = xmlContent.split('action').join(`${action}`);

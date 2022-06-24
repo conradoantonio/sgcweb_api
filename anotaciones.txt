@@ -67,3 +67,34 @@ NOTA: Para abrir una carpeta se ejecuta el siguiente comando cd nombre (sustitui
 6.- En la ruta \POS se ejecuta el siguiente comando npm run build
 
 7.- En la misma ruta se ejecuta el siguiente comando npx cap copy
+
+// Notas de SGC web
+Mandar el campo de método de pago como se muestra a continuación:
+{"pago":[{"tipo_pago": "2", "monto": "500"}, {"tipo_pago": "3", "monto": "500"}, {"tipo_pago": "5", "monto": "809.60"}]}
+
+// ANOTACIONES DE SGC
+-La política de consumo debe crearse cuando la dirección (consumidor), si la zona de venta es por ejemplo Z59, 
+el nombre debe ser Z59, y si el cliente, nativamente tiene .50 de descuento, debe quedar el nombre como Z59.50
+La política de consumo debe actualizarse/crearse en los siguientes escenarios:
+- Cuando se agrega una dirección nueva, debe crearse una política de venta
+- Cuando se modifica una dirección, debe actualizarse la política de venta en netsuite y en sgc (Tener un userevent en las políticas para detectar cuando se actualicen)
+- Cuando se modifica el descuento de cliente, deben actualizarse todas las políticas de consumo vinculadas a este
+- Cuando se actualicen las zonas de ventas, deben actualizarse las políticas de venta asociadas a los consumidores
+
+- A SGC se deben enviar los pedidos cuando tengan el status de notificado (Validar el punto con Christian para el tema de los programados)
+El campo descuento_id va a ser un catálogo que nos enviará el equipo de energiko
+.50
+Z59.50
+
+// Validaciones para pedidos para SGC
+Para guardar un pedido, debemos asegurarnos que el vehículo sea para sgc web, para eso, tenemos que encontrar el dato en 
+pedido-> num viaje -> vehiculo
+
+Política de consumo:
+El identificador_externo debe guardarse con el siguiente formato:
+Unidad de producto (K o L)
+Descuento en centavos (05)
+Zona de precios (Z59)
+
+Quedando de la siguiente manera: 
+L00Z59
