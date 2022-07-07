@@ -48,66 +48,55 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
             try {
                 // Colocar los objetos como vacíos
                 let idToken = login();
+                let gasLpId = "4088";
+                let statusAsignadoId = "2";
                 let rowItem = scriptContext.newRecord;
 
-                if( scriptContext.type === scriptContext.UserEventType.CREATE ) {
-                    let internalFileId = searchXmlFile(search);
-                    let xmlContent = file.load({ id: internalFileId }).getContents();
-                    let dataToSend = setDataOpportunity(rowItem, null, 'create');
-                    let typeModule = "Pedidos";
-                    let action = "registrar";
-                    let responseInfo = registerOpp(xmlContent, idToken, typeModule, action, dataToSend);
+                if ( scriptContext.type === scriptContext.UserEventType.EDIT ) {
+                    /* Sólo si la oportunidad contiene un artículo de GAS LP, cuenta con un status de asignado y tiene una ruta asignada 
+                    * es que puede guardar/enviar un pedido en SGC web
+                    */
+                    let statusOpp = rowItem.getValue({fieldId:'custbody_ptg_estado_pedido'});
+                    let articulos = searchArticlesOpp(rowItem);
+                    let addressId = rowItem.getValue({fieldId:'shipaddresslist'});
+                    log.debug('Address ID', addressId);
                     
-                    log.debug('Response info', responseInfo);
-
-                    // Se validará que haya salido bien el response
-                    if (["1111", "0000"].includes(responseInfo.code[0].textContent) ) {
-                        log.debug('Response code info', responseInfo.code[0]);
-                        log.debug('Respuesta oficial sgcweb', responseInfo.info[0]);
-
-                        let realResult = JSON.parse(responseInfo.info[0].textContent);
-                        log.debug('Respuesta decodificada', realResult);
-                        
-                        // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
-                        record.submitFields({
-                            type: record.Type.OPPORTUNITY,
-                            id: rowItem.id,
-                            values: {
-                                'custbody_otg_folio_aut': realResult.folio
-                            }
-                        });
-                        log.debug('Actualización', 'Folio de pedido actualizado');
-                    } else {
-                        log.debug('Ocurrió un error', responseInfo.code[0].textContent);
+                    log.debug('Status OPP', statusOpp);
+                    if ( articulos.length && articulos[0].id == gasLpId && statusOpp == statusAsignadoId ) {
+                        log.debug('Articulo', articulos[0]);
+                        log.debug('Status', statusOpp);
+                        // if
                     }
-                }
-                else if ( scriptContext.type === scriptContext.UserEventType.EDIT ) {
                     let internalFileId = searchXmlFile(search);
                     let xmlContent = file.load({ id: internalFileId }).getContents();
-                    let dataToSend = setDataOpportunity(rowItem, null, 'edit');
+                    let dataToSend = setDataOpportunity(rowItem, null, 'edit', articulos, addressId);
                     let typeModule = "Pedidos";
                     let action = "registrar";
-                    let responseInfo = registerOpp(xmlContent, idToken, typeModule, action, dataToSend);
+                    let responseInfo = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
                     
                     log.debug('Response info', responseInfo);
 
                     // Se validará que haya salido bien el response
                     if (["1111", "0000"].includes(responseInfo.code[0].textContent) ) {
                         log.debug('Response code info', responseInfo.code[0]);
-                        log.debug('Respuesta oficial sgcweb', responseInfo.info[0]);
                         
+                        log.debug('SGC', 'Pedido registrado correctamente');
                         let realResult = JSON.parse(responseInfo.info[0].textContent);
-                        log.debug('Respuesta decodificada', realResult);
+                        log.debug('Respuesta sgcweb pedido', realResult);
+                        // log.debug('Respuesta oficial sgcweb', responseInfo.info[0]);
+                        
+                        // let realResult = JSON.parse(responseInfo.info[0].textContent);
+                        // log.debug('Respuesta decodificada', realResult);
                         
                         // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
-                        record.submitFields({
-                            type: record.Type.OPPORTUNITY,
-                            id: rowItem.id,
-                            values: {
-                                'custbody_otg_folio_aut': realResult.folio
-                            }
-                        });
-                        log.debug('Actualización', 'Folio de pedido actualizado');
+                        // record.submitFields({
+                        //     type: record.Type.OPPORTUNITY,
+                        //     id: rowItem.id,
+                        //     values: {
+                        //         'custbody_otg_folio_aut': realResult.folio
+                        //     }
+                        // });
+                        // log.debug('Actualización', 'Folio de pedido actualizado');
                     } else {
                         log.debug('Ocurrió un error', responseInfo.code[0].textContent);
                     }
@@ -256,7 +245,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
         }
 
         // Configura los datos a enviar del producto a SGC web
-        const setDataOpportunity = (rowItem, aditionalCustomerInfo = false, type) => {
+        const setDataOpportunity = (rowItem, aditionalCustomerInfo = false, type, articulos, direccionId) => {
             // log.debug('info', 'entró a la función de configurar la información del producto');
 
             // let nombre            = ( type == 'edit' ? rowItem.getText({fieldId:'name'}) : aditionalCustomerInfo?.name );
@@ -267,7 +256,6 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
             // let rutaId            = ( type == 'edit' ? rowItem.getValue({fieldId:'custbody_route'}) : rowItem.getValue({fieldId:'custbody_route'}) );
             let motivoCancelacion = ( type == 'edit' ? rowItem.getText({fieldId:'custbody_ptg_motivo_cancelation'}) : rowItem.getValue({fieldId:'custbody_ptg_motivo_cancelation'}) );
             let entity            = ( type == 'edit' ? rowItem.getValue({fieldId:'entity'}) : rowItem.getValue({fieldId:'entity'}) );
-            let articulos         = searchArticlesOpp(rowItem);
 
             if ( trandate ) {
                 var formattedDateString = format.format({
@@ -313,16 +301,32 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
                 "fecha_modificacion":"",
                 "estatus":"",
                 "comentarios":comentarios,
-                "cantidad":articulos.length ? articulos[0].quantity : "0",
-                "producto_id":articulos.length ? articulos[0].id : "1753",
+                "cantidad":articulos.length ? articulos[0].quantity : 0,
+                "producto_id":'GAS-LP-202',
                 "precio_id":"",
                 "usuario_asignado_id":"",
-                "consumidor_id":entity,
+                "consumidor_id":"0000".concat(direccionId),
                 "lista_unidades_id":"",
                 "ruta_id":"2051",
                 // "ruta_id":rutaId,
                 "motivo_cancelacion":motivoCancelacion,
             };
+
+            // "folio":"",
+            // "identificador_externo":"490632",
+            // "fecha_atencion":"2022-06-29 02:00:00",
+            // "fecha_servicio":"",
+            // "fecha_modificacion":"",
+            // "estatus":"",
+            // "comentarios":"",
+            // "cantidad":"66",
+            // "producto_id":"GAS-LP-202",
+            // "precio_id":"",
+            // "usuario_asignado_id":"",
+            // "consumidor_id":"00042253",
+            // "lista_unidades_id":"",
+            // "ruta_id":"2051",
+            // "motivo_cancelacion":""
 
             log.debug('data armada: ', data);
 
@@ -330,7 +334,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
         }
 
         // Guarda / actualiza un producto en SGC web
-        const registerOpp = (xmlContent, idToken, typeModule, action, data) => {
+        const registerSgcData = (xmlContent, idToken, typeModule, action, data) => {
             xmlContent = xmlContent.split('idSession').join(`${idToken}`);
             xmlContent = xmlContent.split('typeModule').join(`${typeModule}`);
             xmlContent = xmlContent.split('action').join(`${action}`);

@@ -98,3 +98,16 @@ Zona de precios (Z59)
 
 Quedando de la siguiente manera: 
 L00Z59
+
+// Comentarios 29 de Junio del 2022
+- Integrar la interfaz de descuentos y productos, la documentación viene todas
+en el mismo archivo de producto
+
+- Identificadores externos para las políticas de venta:
+CREDITO_DEFAULT
+CONTADO
+
+Nota: Sólo se manejarán esos 2 con un límite de crédito $250,000
+
+- Enviar el pedido a SGC web cuando el pedido sea notificado
+- Corregir el formato del identificador externo del producto (Es la zona de venta)

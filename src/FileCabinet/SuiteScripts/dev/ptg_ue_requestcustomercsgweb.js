@@ -111,7 +111,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                     // log.debug('Politica de consumo', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}));
                     
                     log.debug('Xml ID', internalFileId);
-                    log.debug('Listado de direcciones', customerAddresses);
+                    // log.debug('Listado de direcciones', customerAddresses);
                     // log.debug('data customer', dataToSend);
 
                     let typeModule = action = responseConsPol = '';
@@ -332,7 +332,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                 "estado":defaultAddress.estado ?? "",
                 "codigo_postal":( defaultAddress.codigo_postal ?? "31135" ),
                 "pais":defaultAddress.pais ?? "",
-                "telefono1":telefono1 ? telefono1 : "industrial",
+                "telefono1":telefono1 ? telefono1 : "",
                 "telefono2":telefono2 ?? "",
                 "activo":"1",
                 "email":email ?? "",
@@ -356,7 +356,8 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
             let data = {
                 "numero_consumidor":"",
-                "identificador_externo": "0000"+address.id+address.label,
+                "identificador_externo": "0000"+address.id,
+                // "identificador_externo": "0000"+address.id+address.etiqueta,
                 "nombres":nombre ? nombre : "Nombre consumidor",
                 "apellidos":"Doe",
                 "telefono1":telefono1 ? telefono1 : "industrial",
@@ -376,7 +377,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                 "cliente_id":clienteId,
                 "capacidad":"150",
                 "tipo_pago":"",
-                "numero_verificador":address.label,
+                "numero_verificador":address.etiqueta,
                 "ruta_id":""
             };
             // Falta la lógica para obtener la ruta asignada, tipo de cliente (campo tipo_consumidor)
@@ -424,11 +425,19 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
             let nombre = address.territorioZona;
             let limite_credito = ( type == 'edit' ? rowCustomer.getText({fieldId:'creditlimit'}) : rowCustomer.getValue({fieldId:'creditlimit'}) );
             let descuento = ( type == 'edit' ? rowCustomer.getValue({fieldId:'custentity_ptg_descuento_asignar'}) : rowCustomer.getValue({fieldId:'custentity_ptg_descuento_asignar'}) );
+            log.debug('Descuento en politica consumo', descuento);
             let splitDesc = ( descuento ? descuento.split('.') : '00');
             limite_credito = (limite_credito ? Number(parseInt(limite_credito)) : 0.00);
-            let centavos = ( splitDesc[1] ? splitDesc[1] : '00' );
+            let centavos = Number( parseInt( ( splitDesc[1] ? splitDesc[1] : '00' ) ).toFixed(2) );
+
+
+            if ( centavos < 10 ) {
+                centavos = '0'.concat(centavos);
+            } else {
+                // 
+            }
             // centavos = ( centavos == '00' ? '00' : );
-            // Falta lógica para aplicar los descuentos aquí
+            // Mejorar lógica para aplicar los descuentos aquí
 
             let data = {
                 "nombre":nombre,
@@ -450,104 +459,6 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
             return data;
         }
-
-        // Busca la dirección por defecto del cliente
-        // const searchDefaultAddress = (search, rowCustomer) => {
-        //     // log.debug('info', 'entró a la función de buscar la dirección por defecto');
-        //     // Búsqueda personalizada para la dirección por defecto del cliente
-        //     var customerSearchObj = search.create({
-        //         type: "customer",
-        //         filters:
-        //         [
-        //            ["internalid","anyof",rowCustomer.id],
-        //            "AND", 
-        //            ["isdefaultshipping","is","T"]
-        //         ],
-        //         columns:
-        //         [
-        //            search.createColumn({
-        //               name: "custrecord_ptg_estado",
-        //               join: "Address",
-        //               label: "PTG - ESTADO"
-        //            }),
-        //            search.createColumn({
-        //               name: "custrecord_ptg_colonia_ruta",
-        //               join: "Address",
-        //               label: "PTG - COLONIA Y RUTA"
-        //            }),
-        //            search.createColumn({
-        //               name: "custrecord_ptg_exterior_number",
-        //               join: "Address",
-        //               label: "Exterior Number"
-        //            }),
-        //            search.createColumn({
-        //               name: "custrecord_ptg_interior_number",
-        //               join: "Address",
-        //               label: "Interior Number"
-        //            }),
-        //            search.createColumn({
-        //               name: "isdefaultshipping",
-        //               join: "Address",
-        //               label: "Dirección de envío predeterminada"
-        //            }),
-        //            search.createColumn({
-        //               name: "custrecord_ptg_address_reference",
-        //               join: "Address",
-        //               label: "Address Reference"
-        //            }),
-        //            search.createColumn({
-        //               name: "custrecord_ptg_street",
-        //               join: "Address",
-        //               label: "Street"
-        //            }),
-        //            search.createColumn({
-        //              name: "custrecord_ptg_codigo_postal",
-        //              join: "Address",
-        //              label: "PTG - CODIGO POSTAL"
-        //            }),
-        //            search.createColumn({
-        //               name: "custrecord_ptg_town_city",
-        //               join: "Address",
-        //               label: "Town/City"
-        //            }),
-        //            search.createColumn({name: "country", label: "País"})
-        //         ]
-        //     });
-            
-        //     let dirDefault = {};
-        //     var searchResultCount = customerSearchObj.runPaged().count;
-        //     // log.debug("customerSearchObj result count",searchResultCount);
-        //     customerSearchObj.run().each(function(result){
-        //         let resDireccion = result.getAllValues();
-        //         let isDefault = resDireccion['Address.isdefaultshipping'];
-
-        //         if ( isDefault == true ) {
-        //             dirDefault['no_exterior']   = resDireccion['Address.custrecord_ptg_exterior_number'];
-        //             dirDefault['no_interior']   = resDireccion['Address.custrecord_ptg_interior_number'];
-        //             dirDefault['estado']        = resDireccion['Address.custrecord_ptg_estado'];
-        //             dirDefault['calle']         = resDireccion['Address.custrecord_ptg_street'];
-        //             dirDefault['colonia']       = resDireccion['Address.custrecord_ptg_colonia_ruta'][0]?.text;
-        //             dirDefault['localidad']     = resDireccion['Address.custrecord_ptg_town_city'];
-        //             dirDefault['referencia']    = resDireccion['Address.custrecord_ptg_address_reference'];
-        //             dirDefault['ciudad']        = resDireccion['Address.custrecord_ptg_town_city'];
-        //             dirDefault['codigo_postal'] = resDireccion['Address.custrecord_ptg_codigo_postal'];
-        //             dirDefault['pais']          = resDireccion.country[0].text;
-        //         }
-
-        //         // log.debug('pais', resDireccion.country[0].text)
-        //         // log.debug('res direccion', resDireccion);
-        //         // log.debug('Estado', resDireccion['Address.custrecord_ptg_estado']);
-
-        //         // dirPre = result.getValue({ name: "internalid", label: "Internal ID" });
-        //         // log.debug('direccion',result.getValue({ name: "internalid", label: "Internal ID" }));
-        //         // log.debug('direccion_ptg_estado value', result.getValue({name: "custrecord_ptg_estado", label: "PTG - ESTADO"}));
-        //         // log.debug('direccion_ptg_estado text', result.getText({name: "custrecord_ptg_estado", label: "PTG - ESTADO"}));
-        //         // .run().each has a limit of 4,000 results
-        //         return true;
-        //     });
-
-        //     return dirDefault;
-        // }
 
         // Query que obtiene las direcciones del cliente creado
         const searchCustomerAddresses = (customerId) => {
@@ -583,7 +494,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                 let pageIterator = page.value.data.iterator();
                 pageIterator.each(function (row) {
                     let address = {};
-                    log.debug('Row de query pura', row);
+                    // log.debug('Row de query pura', row);
                     if(!!row.value.getValue(0)) {
                         address.id = row.value.getValue(1);
                         address.codigo_postal = row.value.getValue(2);
