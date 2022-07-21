@@ -1,0 +1,12 @@
+<soapenv:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sgc="http://www.sgcweb.com/sgcweb">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <sgc:login soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+         <user_auth xsi:type="sgc:user_auth">
+            <!--You may enter the following 2 items in any order-->
+            <user_name xsi:type="xsd:string">apidisruptt</user_name>
+            <password xsi:type="xsd:string">396782400889b4c00500cf1e268a96a1</password>
+         </user_auth>
+      </sgc:login>
+   </soapenv:Body>
+</soapenv:Envelope>

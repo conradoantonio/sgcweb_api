@@ -92,7 +92,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
                         log.debug('Actualización', 'Código de cliente actualizado');
                     } else {
-                        log.debug('Ocurrió un error', responseInfo.code[0].textContent);
+                        log.debug('Ocurrió un error en clientes', responseInfo.code[0].textContent);
                     }
                     //////////////////////////////////////////////////////////////////////////////
                 }
@@ -128,7 +128,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                         log.debug('SGC', 'Política de venta registrada');
                         log.debug('Respuesta sgcweb política de venta', responseConsPol.info);
                     } else {
-                        log.debug('Ocurrió un error', responseConsPol.code[0].textContent);
+                        log.debug('Ocurrió un error en políticas de venta', responseConsPol.code[0].textContent);
                     }
 
                     // Se da de alta el cliente
@@ -154,7 +154,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                         });
                         log.debug('Actualización', 'Código de cliente actualizado');
                     } else {
-                        log.debug('Ocurrió un error', responseCustomer.code[0].textContent);
+                        log.debug('Ocurrió un error en clientes', responseCustomer.code[0].textContent);
                     }
                     // return 'Hola';
 
@@ -195,10 +195,10 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                                 // });
                                 // log.debug('Actualización', 'Código de cliente actualizado');
                             } else {
-                                log.debug('Ocurrió un error', responseConsumer.code[0].textContent);
+                                log.debug('Ocurrió un error en consumidores', responseConsumer.code[0].textContent);
                             }
                         } else {
-                            log.debug('Ocurrió un error', responseConsumptionPolicy.code[0].textContent);
+                            log.debug('Ocurrió un error en políticas de consumo', responseConsumptionPolicy.code[0].textContent);
                         }
 
                         
@@ -311,7 +311,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
             let nombre    = ( type == 'edit' ? rowCustomer.getText({fieldId:'altname'}) : aditionalCustomerInfo?.altname );
             // let nombre    = ( type == 'edit' ? rowCustomer.getText({fieldId:'companyname'}) : aditionalCustomerInfo?.companyname );
             let rfc       = ( type == 'edit' ? rowCustomer.getText({fieldId:'custentity_mx_rfc'}) : rowCustomer.getValue({fieldId:'custentity_mx_rfc'}) );
-            let telefono1 = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : rowCustomer.getValue({fieldId:'phone'}) );
+            // let telefono1 = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : rowCustomer.getValue({fieldId:'phone'}) );
             let telefono2 = ( type == 'edit' ? rowCustomer.getText({fieldId:'altphone'}) : rowCustomer.getValue({fieldId:'altphone'}) );
             let email     = ( type == 'edit' ? rowCustomer.getText({fieldId:'email'}) : rowCustomer.getValue({fieldId:'email'}) );
             let saldo     = ( type == 'edit' ? rowCustomer.getText({fieldId:'balance'}) : rowCustomer.getValue({fieldId:'balance'}) );
@@ -332,7 +332,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                 "estado":defaultAddress.estado ?? "",
                 "codigo_postal":( defaultAddress.codigo_postal ?? "31135" ),
                 "pais":defaultAddress.pais ?? "",
-                "telefono1":telefono1 ? telefono1 : "",
+                "telefono1":defaultAddress.telefonoPrincipal ??  "4448111213",
                 "telefono2":telefono2 ?? "",
                 "activo":"1",
                 "email":email ?? "",
@@ -390,16 +390,18 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
         // Configura los datos a enviar para las políticas de consumo
         const setDataSalesPolicy = (rowCustomer, aditionalConsumerInfo = false, type) => {
             // log.debug('info', 'entró a la función de setear la política de venta');
-
-            let limite_credito = ( type == 'edit' ? rowCustomer.getValue({fieldId: 'creditlimit'}) : rowCustomer.getValue({fieldId: 'creditlimit'}) );
+            let limite_credito = 250000;
+            // let limite_credito = ( type == 'edit' ? rowCustomer.getValue({fieldId: 'creditlimit'}) : rowCustomer.getValue({fieldId: 'creditlimit'}) );
             let tipo_pago      = ( type == 'edit' ? rowCustomer.getValue({fieldId: 'custentity_ptg_alianza_comercial_cliente'}) : rowCustomer.getValue({fieldId:'custentity_ptg_alianza_comercial_cliente'}) );
-
-            limite_credito = ( limite_credito ? Number( parseFloat(limite_credito) ) : '' );
-            tipo_pago      = ( tipo_pago == 2 ? 2 : ( tipo_pago == 3 ? 1 : '' ) );
+            let identificador  = tipo_pago == 2 ? 'CREDITO_DEFAULT' : 'CONTADO';
+            // limite_credito = ( limite_credito ? Number( parseFloat(limite_credito) ) : '' );
+            tipo_pago      = ( tipo_pago == 2 ? 2 : ( tipo_pago == 3 ? 1 : 1 ) );
 
             let data = {
-                "nombre":"Política de venta para cliente 0000"+rowCustomer.id,
+                // "nombre":"Política de venta para cliente 0000"+rowCustomer.id,
+                "nombre":identificador,
                 "identificador_externo":"PV0000"+rowCustomer.id,
+                // "identificador_externo":identificador,
                 "activa":"1",
                 "tipo_pago":tipo_pago,
                 "limite_credito":limite_credito,
@@ -474,6 +476,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
             'customerAddressbookEntityAddress.custrecord_ptg_estado as estado, customerAddressbookEntityAddress.city as ciudad, customerAddressbookEntityAddress.country as pais,'+
             'customerAddressbookEntityAddress.custrecord_ptg_street as calle, '+
             'customerAddressbookEntityAddress.custrecord_ptg_entrecalle_ as entreCalle1, customerAddressbookEntityAddress.custrecord_ptg_y_entre_ as entreCalle2,'+
+            'customerAddressbookEntityAddress.custrecord_ptg_telefono_principal as telefonoPrincipal,'+
             'CUSTOMRECORD_PTG_COLONIASRUTAS_.custrecord_ptg_zona_de_precio_ as idZonaPrecio,'+
             'CUSTOMRECORD_PTG_ZONASDEPRECIO_.name as nombreZona, CUSTOMRECORD_PTG_ZONASDEPRECIO_.custrecord_ptg_precio_ as precioZona, custrecord_ptg_territorio_ as territorioZona '+
 
@@ -510,10 +513,11 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                         address.calle = row.value.getValue(13);
                         address.entreCalle1 = row.value.getValue(14);
                         address.entreCalle2 = row.value.getValue(15);
-                        address.idZona = row.value.getValue(16);
-                        address.nombreZona = row.value.getValue(17);
-                        address.precioZona = row.value.getValue(18);
-                        address.territorioZona = row.value.getValue(19);
+                        address.telefonoPrincipal = row.value.getValue(16);
+                        address.idZona = row.value.getValue(17);
+                        address.nombreZona = row.value.getValue(18);
+                        address.precioZona = row.value.getValue(19);
+                        address.territorioZona = row.value.getValue(20);
                         // obj.text = `${row.value.getValue(1)} - ${row.value.getValue(2)} - ${row.value.getValue(3)}`;
                         
                         // Es la dirección por default

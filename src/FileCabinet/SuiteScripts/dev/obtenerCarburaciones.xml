@@ -1,0 +1,10 @@
+<soapenv:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sgc="http://www.sgcweb.com/sgcweb">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <sgc:obtenerCarburaciones soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+         <session_id xsi:type="xsd:string">idSession</session_id>
+         <ultimofolio xsi:type="xsd:int">ultimoFolio</ultimofolio>
+         <parametros xsi:type="xsd:string"></parametros>
+      </sgc:obtenerCarburaciones>
+   </soapenv:Body>
+</soapenv:Envelope>

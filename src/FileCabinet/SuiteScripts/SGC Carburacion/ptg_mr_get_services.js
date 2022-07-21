@@ -2,7 +2,7 @@
  * @NApiVersion 2.1
  * @NScriptType MapReduceScript
  */
-define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml'],
+define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runtime', 'N/task'],
     /**
  * @param{file} file
  * @param{format} format
@@ -11,10 +11,10 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
  * @param{record} record
  * @param{search} search
  * @param{xml} xml
+ * @param{runtime} runtime
+ * @param{task} task
  */
-    (file, format, http, https, record, search, xml) => {
-        myCounter = 1;
-        // numServices = 0;
+    (file, format, http, https, record, search, xml, runtime, task) => {
         /**
          * Defines the function that is executed at the beginning of the map/reduce process and generates the input data.
          * @param {Object} inputContext
@@ -29,10 +29,15 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
          */
 
         const getInputData = (inputContext) => {
-            let lastFolio = getLastFolio();
-            log.debug('last folio', lastFolio);
+            // let lastFolio = getLastFolio();
+            // log.debug('last folio', lastFolio);
             let arrayServices = [];
             try {
+                let index = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
+                let folios = getFolios();
+                log.debug('Index', index);
+                // log.debug('Folios', folios);
+                return [ folios[index] ];
                 let idToken = login();
                 let internalFileId = searchXmlFile();
                 let dataToSend = setData(lastFolio);
@@ -75,13 +80,19 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
          */
 
         const map = (mapContext) => {
-            log.debug('MC', 'Entró al mapcontext');
-            log.debug('key', mapContext.key);
-            // myCounter += 2;
             
             try {
-                let values = JSON.parse(mapContext.value);
-                log.debug('map', values);
+                // let values = JSON.parse(mapContext.value);
+                let mapValues = JSON.parse(mapContext.value);
+                log.debug('Valores map', mapValues);
+                log.debug('key', mapContext.key);
+
+                return;
+
+                /**
+                 * Se consultan los servicios por planta y se iteran mediante un for, guardando una opotunidad por cada registro
+                 */
+                
 
                 let newOpp = record.create({
                     type: record.Type.OPPORTUNITY,
@@ -116,6 +127,9 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                 newOpp.setValue({fieldId:'entity', value: publico_general});
                 newOpp.setValue({fieldId:'entitystatus', value: entity_status});
                 newOpp.setValue({fieldId:'currency', value: currency});
+
+                // Estación de carburación
+                newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1145});
 
                 // Campos sgc carburación
                 newOpp.setText({fieldId:'custbody_ptg_vendedor_', text: values.vendedor });
@@ -170,7 +184,7 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
 
                 
                 // Se actualiza el folio recién guardado
-                let contadorFolio = record.load({isDynamic : true, type: 'customrecord_ptg_folio_counter', id : 1});
+                let contadorFolio = record.load({isDynamic : true, type: 'customrecord_ptg_folio_counter', id : mapValues.id});
                 
                 contadorFolio.setValue({fieldId: 'custrecord_ptg_folio_counter', value: values.folio});
                 
@@ -224,7 +238,26 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
          * @since 2015.2
          */
         const summarize = (summaryContext) => {
-
+            let folios     = getFolios();
+            let lengthData = folios.length - 1;
+            log.debug('lengthData', folios.length - 1);
+            let index = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
+            //let index = Number(reduceContext.key);
+            if ( index == folios.length - 1 ) {// Ya se terminó de procesar todas y cada una de las plantas
+                log.debug('Proceso terminado', 'no tiene mas data por procesar');
+            } else {
+                let newIndex = index + 1;
+                log.debug('tiene más data por procesar', lengthData);
+                log.debug('newIndex', newIndex);
+                task.create({
+                    taskType: task.TaskType.MAP_REDUCE,
+                    scriptId: runtime.getCurrentScript().id,
+                    deploymentId: runtime.getCurrentScript().deploymentId,
+                    params: {
+                        custscript_ptg_contador: newIndex,
+                    }
+                }).submit();
+            }
         }
 
         // Login
@@ -331,7 +364,7 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                             '<return xsi:type="SOAP-ENC:Array" SOAP-ENC:arrayType="tns:servicio_carburacion[1]">'+
                                 '<item xsi:type="tns:servicio_carburacion">'+
                                     '<servicio_id xsi:type="xsd:string">E95CC43A-ED23-7B8D-B14D-62C77C680270</servicio_id>'+
-                                    '<folio xsi:type="xsd:int">17369</folio>'+
+                                    '<folio xsi:type="xsd:int">18168</folio>'+
                                     '<folio_ticket xsi:type="xsd:int">14606</folio_ticket>'+
                                     '<inicio_servicio xsi:type="xsd:dateTime">2022-07-08T05:36:00</inicio_servicio>'+
                                     '<fin_servicio xsi:type="xsd:dateTime">2022-07-08T05:36:31</fin_servicio>'+
@@ -380,21 +413,25 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
             // let result = [];
 
             // for(let i = 0; i < items.length; i++) {
+            //     let obj = {};
             //     // add longitude value to "result" array
-            //     var tag = items[i].getElementsByTagName('servicio_id')
+            //     var tag = items[i].getElementsByTagName('servicio_id');
+            //     var folio = items[i].getElementsByTagName('folio');
+            //     obj.servicio_id = tag[0].innerHTML;
+            //     obj.folio = folio[0].innerHTML;
             //     console.log(tag[0].innerHTML);
             //     //result.push(items [i].childNodes[0].nodeValue);
             // }
 
             let services = [
                 {
-                    servicio_id : "E95CC43A-ED23-7B8D-B14D-62C77C680270",
-                    folio : 17369,
-                    folio_ticket : 14606,
-                    inicio_servicio : '2022-07-08T05:36:00',
-                    fin_servicio : '2022-07-08T05:36:31',
+                    servicio_id : "2755965B-7697-3463-9CE2-62D7E3D78EC6",
+                    folio : 18772,
+                    folio_ticket : 15818,
+                    inicio_servicio : '2022-07-20T16:14:00',
+                    fin_servicio : '2022-07-20T16:14:32',
                     unidad_medida : 'Litro',
-                    cantidad : 4.0000,
+                    cantidad : 12.18,
                     merma : 0,
                     producto : 'GLP',
                     dispensador : 1,
@@ -404,21 +441,21 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                     vale_electronico : '',
                     vendedor : 'Despachador Usuario',
                     odometro : 0.0000,
-                    valor_unitario : 12.1810,
-                    subtotal : 48.7242,
+                    valor_unitario : 12.1982,
+                    subtotal : 148.5740,
                     impuesto : 'IVA',
                     tasa_impuesto : 16.0000,
-                    importe_impuesto : 7.7958,
+                    importe_impuesto : 23.7718,
                     impuesto_extra : 'IEPS',
                     tasa_impuesto_extra : 0.0000,
                     importe_impuesto_extra : 0.0000,
-                    precio_unitario_neto : 14.1300,
-                    importe_total : 56.5200,
+                    precio_unitario_neto : 14.1500,
+                    importe_total : 172.3458,
                     tipo_registro : 'Venta',
                     numero_impresiones : 2,
-                    folio_dispensador : 268,
-                    totalizador_inicial : 36571.0000,
-                    totalizador_final : 36575.0000,
+                    folio_dispensador : 672,
+                    totalizador_inicial : 76547.0528,
+                    totalizador_final : 76559.2328,
                     tipo_pago : 'Contado',
                     turno : 'Jefe automático - 12 febrero 07:03',
                     estacion : 'CAR00650',
@@ -462,6 +499,57 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
             };
 
             return JSON.stringify(objPago);
+        }
+
+        // Obtiene todos los folios por ubicaciones
+        const getFolios = () => {
+            let foliosArray = [];
+            var customrecord_ptg_folio_counterSearchObj = search.create({
+                type: "customrecord_ptg_folio_counter",
+                filters:
+                [
+                    ["custrecord_ptg_folio_activo","is","T"]
+                ],
+                columns:
+                [
+                    search.createColumn({
+                        name: "scriptid",
+                        sort: search.Sort.ASC,
+                        label: "ID de script"
+                    }),
+                    search.createColumn({name: "internalid", label: "ID interno"}),
+                    search.createColumn({name: "custrecord_ptg_folio_counter", label: "Contador"}),
+                    search.createColumn({name: "custrecord_ptg_planta", label: "Ubicación"}),
+                    search.createColumn({name: "custrecord_ptg_ip_sgc_carb", label: "PTG IP SGC"}),
+                    search.createColumn({
+                        name: "internalid",
+                        join: "CUSTRECORD_PTG_PLANTA",
+                        label: "ID interno"
+                    })
+                ]
+            });
+            // var searchResultCount = customrecord_ptg_folio_counterSearchObj.runPaged().count;
+            customrecord_ptg_folio_counterSearchObj.run().each(function(result) {
+                let resDiscount = result.getAllValues();
+                
+                let obj = {
+                    id       : resDiscount.internalid[0].value,
+                    contador : resDiscount.custrecord_ptg_folio_counter, 
+                    plantaId : resDiscount.custrecord_ptg_planta[0].value, 
+                    ip       : resDiscount.custrecord_ptg_ip_sgc_carb
+                };
+                foliosArray.push(obj);
+
+                // .run().each has a limit of 4,000 results
+                return true;
+            });
+             
+             /*
+             customrecord_ptg_folio_counterSearchObj.id="customsearch1658353869896";
+             customrecord_ptg_folio_counterSearchObj.title="PTG|Obtener Folios (copy)";
+             var newSearchId = customrecord_ptg_folio_counterSearchObj.save();
+             */
+            return foliosArray;
         }
 
         return {getInputData, map, reduce, summarize}

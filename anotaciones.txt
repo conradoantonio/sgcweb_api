@@ -110,4 +110,19 @@ CONTADO
 Nota: Sólo se manejarán esos 2 con un límite de crédito $250,000
 
 - Enviar el pedido a SGC web cuando el pedido sea notificado
-- Corregir el formato del identificador externo del producto (Es la zona de venta)
+- Corregir el formato del identificador externo del producto (Es la zona de venta así nada más)
+
+Check pruebas SGC carburación 15/07/2022
+- En el contador de dolio, se agregarán los campos de planta e ip (Se agregarán varios registros dependiendo del número de plantas)
+- Vincular la ubicación por IP en las oportunidades que se crean (Mapear el campo acorde a lo que nos envíen)
+
+Desarrollo restante de SGC web ventas
+- Falta separar el envío de datos a sgc web dependiendo de la subsidiaria del cliente (San Luis Gas, Gasera Potosina), falta que
+nos manden el WSDL de la otra gasera para hacer su integración
+- Falta la interfaz de servicios
+- Falta la integración con el middleware
+- Falta corregir las interfaces anteriormente creadas
+
+
+Notas del 20 de julio 2022
+Validar el campo dispensador, si es 1, asignar bomba 1, si es 2, asignar bomba 2
