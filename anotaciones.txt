@@ -126,3 +126,22 @@ nos manden el WSDL de la otra gasera para hacer su integración
 
 Notas del 20 de julio 2022
 Validar el campo dispensador, si es 1, asignar bomba 1, si es 2, asignar bomba 2
+
+SGC web ventas 21 de julio 2022:
+El método de pago en pedidos va a ser de contado siempre y cuando el método seleccionado sea diferente a crédito
+
+ID DE TOKEN
+47f3f2938d3c1464fab543c284074061027bdee060d128527085df0218d7c8ac
+SECRETO DE TOKEN
+27c4589075b83696f72a3114adaa517e171ef3e9fa485ca794e81fcf441a7d24
+
+
+// Tokens de usuario de Arturo
+ID DE TOKEN
+a2eea90470d952e111cc93b55229b969c34b92705a3014368c03b021f150df3f
+SECRETO DE TOKEN
+6fa3a5664327e6d24eac936c797b23645a059071def6876b18260bbb0d1a2803
+
+ctrl + alt + shift = Crea un multicursor para abajo
+
+ctrl + d = Selecciona duplicados con cursor

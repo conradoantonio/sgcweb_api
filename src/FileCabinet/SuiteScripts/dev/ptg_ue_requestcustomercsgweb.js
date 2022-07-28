@@ -45,6 +45,17 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
          */
         const afterSubmit = (scriptContext) => {
             try {
+                // Se actualiza el campo tipo check
+                var custom = scriptContext.newRecord;// Get edited customer
+
+                record.submitFields({
+                    type: record.Type.CUSTOMER,
+                    id: custom.id,
+                    values: {
+                        'custentity_ptg_cliente_act_sgc': "T",
+                    }
+                });
+                
                 let idToken = login();
 
                 if( scriptContext.type === scriptContext.UserEventType.CREATE ) {
@@ -400,8 +411,8 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
             let data = {
                 // "nombre":"Política de venta para cliente 0000"+rowCustomer.id,
                 "nombre":identificador,
-                "identificador_externo":"PV0000"+rowCustomer.id,
-                // "identificador_externo":identificador,
+                // "identificador_externo":"PV0000"+rowCustomer.id,
+                "identificador_externo":identificador,
                 "activa":"1",
                 "tipo_pago":tipo_pago,
                 "limite_credito":limite_credito,

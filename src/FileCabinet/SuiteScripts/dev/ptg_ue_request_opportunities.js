@@ -46,7 +46,6 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
          */
         const afterSubmit = (scriptContext) => {
             try {
-                // Colocar los objetos como vacíos
                 let idToken = login();
                 let gasLpId = "4088";
                 let statusAsignadoId = "2";
@@ -59,49 +58,67 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
                     let statusOpp = rowItem.getValue({fieldId:'custbody_ptg_estado_pedido'});
                     let articulos = searchArticlesOpp(rowItem);
                     let addressId = rowItem.getValue({fieldId:'shipaddresslist'});
-                    log.debug('Address ID', addressId);
-                    
-                    log.debug('Status OPP', statusOpp);
-                    if ( articulos.length && articulos[0].id == gasLpId && statusOpp == statusAsignadoId ) {
-                        log.debug('Articulo', articulos[0]);
-                        log.debug('Status', statusOpp);
-                        // if
-                    }
-                    let internalFileId = searchXmlFile(search);
-                    let xmlContent = file.load({ id: internalFileId }).getContents();
-                    let dataToSend = setDataOpportunity(rowItem, null, 'edit', articulos, addressId);
-                    let typeModule = "Pedidos";
-                    let action = "registrar";
-                    let responseInfo = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
-                    
-                    log.debug('Response info', responseInfo);
+                    let zonaPrecio = rowItem.getText({fieldId:'custbody_ptg_zonadeprecioop_'});
+                    // log.debug('Address ID', addressId);
+                    // log.debug('articulos', articulos);
+                    // log.debug('statusOpp', statusOpp);
+                    // log.debug('zonaPrecio', zonaPrecio);
+                    // log.debug('Rowitem', rowItem);
 
-                    // Se validará que haya salido bien el response
-                    if (["1111", "0000"].includes(responseInfo.code[0].textContent) ) {
-                        log.debug('Response code info', responseInfo.code[0]);
-                        
-                        log.debug('SGC', 'Pedido registrado correctamente');
-                        let realResult = JSON.parse(responseInfo.info[0].textContent);
-                        log.debug('Respuesta sgcweb pedido', realResult);
-                        // log.debug('Respuesta oficial sgcweb', responseInfo.info[0]);
-                        
-                        // let realResult = JSON.parse(responseInfo.info[0].textContent);
-                        // log.debug('Respuesta decodificada', realResult);
-                        
-                        // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
-                        // record.submitFields({
-                        //     type: record.Type.OPPORTUNITY,
-                        //     id: rowItem.id,
-                        //     values: {
-                        //         'custbody_otg_folio_aut': realResult.folio
-                        //     }
-                        // });
-                        // log.debug('Actualización', 'Folio de pedido actualizado');
+                    if ( articulos.length && articulos[0].id == gasLpId && statusOpp == statusAsignadoId ) {
+                        let typeModule = action = responseOpp = responseProduct = '';
+                       
+                        let internalFileId = searchXmlFile(search);
+                        let xmlContent = file.load({ id: internalFileId }).getContents();
+                        let dataProduct = setDataProduct(rowItem, articulos[0], zonaPrecio);
+                        log.debug('DataProduct', dataProduct);
+                        typeModule = "Productos";
+                        action = "registrar";
+                        responseProduct = registerSgcData(xmlContent, idToken, typeModule, action, dataProduct);
+
+                        if (["1111", "0000"].includes(responseProduct.code[0].textContent) ) {
+                            log.debug('SGC', 'Producto registrado correctamente');
+                            
+                            let dataOpp = setDataOpportunity(rowItem, dataProduct.identificador_externo, articulos, addressId);
+                            typeModule = "Pedidos";
+                            action = "registrar";
+                            responseOpp = registerSgcData(xmlContent, idToken, typeModule, action, dataOpp);
+                            
+                            log.debug('Response info', responseOpp);
+        
+                            // Se validará que haya salido bien el response
+                            if (["1111", "0000"].includes(responseOpp.code[0].textContent) ) {
+                                log.debug('Response code info', responseOpp.code[0]);
+                                
+                                log.debug('SGC', 'Pedido registrado correctamente');
+                                let realResult = JSON.parse(responseOpp.info[0].textContent);
+                                log.debug('Respuesta sgcweb pedido', realResult);
+                                // log.debug('Respuesta oficial sgcweb', responseOpp.info[0]);
+                                
+                                // let realResult = JSON.parse(responseOpp.info[0].textContent);
+                                // log.debug('Respuesta decodificada', realResult);
+                                
+                                // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
+                                record.submitFields({
+                                    type: record.Type.OPPORTUNITY,
+                                    id: rowItem.id,
+                                    values: {
+                                        'custbody_ptg_folio_sgc_': realResult.folio
+                                        // 'custbody_ptg_folio_aut': realResult.folio
+                                    }
+                                });
+                                log.debug('Actualización', 'Folio de pedido actualizado');
+                            } else {
+                                log.debug('Ocurrió un error al guardar el pedido en sgc', responseOpp.code[0].textContent);
+                            }
+
+                        } else {
+                            log.debug('Error', 'El producto no pudo ser actualizado en sgc');
+                        }
                     } else {
-                        log.debug('Ocurrió un error', responseInfo.code[0].textContent);
+                        log.debug('Validación', 'No se envía a SGC');
                     }
                 } 
-
             } catch (error) {
                 log.debug('Algo salió mal', error);
             }
@@ -164,7 +181,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
         }
 
         // Busqueda guardada para obtener el archivo xml de peticiones a la api de SGC web
-        const searchXmlFile = (search) => {
+        const searchXmlFile = () => {
             let internalFileId;
             let fileSearchObj = search.create({
                 type: "file",
@@ -244,18 +261,38 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
              return articlesArray;
         }
 
-        // Configura los datos a enviar del producto a SGC web
-        const setDataOpportunity = (rowItem, aditionalCustomerInfo = false, type, articulos, direccionId) => {
-            // log.debug('info', 'entró a la función de configurar la información del producto');
+        // Configura los datos a enviar para el producto
+        const setDataProduct = (rowPedido, articulo, zonaPrecio) => {
+            // let tipo_pago = ( type == 'edit' ? rowPedido.getValue({fieldId: 'custentity_ptg_alianza_comercial_cliente'}) : rowPedido.getValue({fieldId:'custentity_ptg_alianza_comercial_cliente'}) );
+            let precioSinImpuesto = Number(parseFloat(articulo.rate).toFixed(2));
+            let precioVenta = Number(parseFloat(precioSinImpuesto * 1.16).toFixed(2));
+            let data = {
+                "nombre":"GAS LP "+zonaPrecio,
+                "identificador_externo":zonaPrecio,
+                "monto_costo_unitario":0.00,
+                "precio_sin_impuesto":precioSinImpuesto,
+                "precio_venta":precioVenta,
+                "tasa_impuesto":16.00,
+                "unidad_medida":"Litro",
+                "activo":1,
+                "lista_descuentos":""
+             };
 
-            // let nombre            = ( type == 'edit' ? rowItem.getText({fieldId:'name'}) : aditionalCustomerInfo?.name );
+            // log.debug('json producto', data);
+
+            return data;
+        }
+
+        // Configura los datos a enviar del producto a SGC web
+        const setDataOpportunity = (rowItem, productoId, articulos, direccionId) => {
+
             let fechaCreacion = horaCreacion = fechaDividida = horaDividida = horaMinDividida = fechaAtencion = anio = mes = dia = hora = min = isPm = horaMin = '';
-            let trandate          = ( type == 'edit' ? rowItem.getValue({fieldId:'trandate'}) : rowItem.getValue({fieldId:'trandate'}) );
-            let comentarios       = ( type == 'edit' ? rowItem.getValue({fieldId:'memo'}) : rowItem.getValue({fieldId:'memo'}) );
+            let trandate          = rowItem.getValue({fieldId:'trandate'});
+            let comentarios       = rowItem.getValue({fieldId:'memo'});
             // let estatus           = ( type == 'edit' ? rowItem.getValue({fieldId:'entitystatus'}) : rowItem.getValue({fieldId:'entitystatus'}) );
             // let rutaId            = ( type == 'edit' ? rowItem.getValue({fieldId:'custbody_route'}) : rowItem.getValue({fieldId:'custbody_route'}) );
-            let motivoCancelacion = ( type == 'edit' ? rowItem.getText({fieldId:'custbody_ptg_motivo_cancelation'}) : rowItem.getValue({fieldId:'custbody_ptg_motivo_cancelation'}) );
-            let entity            = ( type == 'edit' ? rowItem.getValue({fieldId:'entity'}) : rowItem.getValue({fieldId:'entity'}) );
+            let motivoCancelacion = rowItem.getText({fieldId:'custbody_ptg_motivo_cancelation'});
+            let entity            = rowItem.getValue({fieldId:'entity'});
 
             if ( trandate ) {
                 var formattedDateString = format.format({
@@ -302,7 +339,8 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
                 "estatus":"",
                 "comentarios":comentarios,
                 "cantidad":articulos.length ? articulos[0].quantity : 0,
-                "producto_id":'GAS-LP-202',
+                // "producto_id":'GAS-LP-202',
+                "producto_id":productoId,
                 "precio_id":"",
                 "usuario_asignado_id":"",
                 "consumidor_id":"0000".concat(direccionId),
@@ -312,23 +350,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
                 "motivo_cancelacion":motivoCancelacion,
             };
 
-            // "folio":"",
-            // "identificador_externo":"490632",
-            // "fecha_atencion":"2022-06-29 02:00:00",
-            // "fecha_servicio":"",
-            // "fecha_modificacion":"",
-            // "estatus":"",
-            // "comentarios":"",
-            // "cantidad":"66",
-            // "producto_id":"GAS-LP-202",
-            // "precio_id":"",
-            // "usuario_asignado_id":"",
-            // "consumidor_id":"00042253",
-            // "lista_unidades_id":"",
-            // "ruta_id":"2051",
-            // "motivo_cancelacion":""
-
-            log.debug('data armada: ', data);
+            log.debug('data oportunidad armada: ', data);
 
             return data;
         }
