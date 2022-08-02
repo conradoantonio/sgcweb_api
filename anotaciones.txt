@@ -145,3 +145,10 @@ SECRETO DE TOKEN
 ctrl + alt + shift = Crea un multicursor para abajo
 
 ctrl + d = Selecciona duplicados con cursor
+
+Cambiar la lógica del script de actualizar servicios, estos se van a consultar similar a lo que se hace en SGC carburación.
+- Crear un registro personalizado aparte para los folios de sgc web
+- Si se encuentra el folio en una oportunidad existente, se actualiza
+- Si no se encuentra el folio, se crea una oportunidad nueva
+- Crear una búsqueda guardada que traiga el número de viaje activo acorde al número de vehículo de SGC web (en caso de que sea un antojado)
+Nota: El estado debe quedar como concretado, el campo estado de pedido debe ser entregado

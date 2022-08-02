@@ -52,25 +52,28 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
                 let rowItem = scriptContext.newRecord;
 
                 if ( scriptContext.type === scriptContext.UserEventType.EDIT ) {
-                    /* Sólo si la oportunidad contiene un artículo de GAS LP, cuenta con un status de asignado y tiene una ruta asignada 
-                    * es que puede guardar/enviar un pedido en SGC web
+                    /* Sólo si la oportunidad contiene un artículo de GAS LP, cuenta con un status de asignado 
+                    * y tiene una ruta (vehiculo) asignada es que puede guardar/enviar un pedido en SGC web
                     */
                     let statusOpp = rowItem.getValue({fieldId:'custbody_ptg_estado_pedido'});
                     let articulos = searchArticlesOpp(rowItem);
+                    let extraInfo = getOppInfo(rowItem);
                     let addressId = rowItem.getValue({fieldId:'shipaddresslist'});
                     let zonaPrecio = rowItem.getText({fieldId:'custbody_ptg_zonadeprecioop_'});
                     // log.debug('Address ID', addressId);
                     // log.debug('articulos', articulos);
                     // log.debug('statusOpp', statusOpp);
                     // log.debug('zonaPrecio', zonaPrecio);
+                    // log.debug('extraInfo', extraInfo);
                     // log.debug('Rowitem', rowItem);
-
-                    if ( articulos.length && articulos[0].id == gasLpId && statusOpp == statusAsignadoId ) {
+                    // return;
+                    if ( articulos.length && articulos[0].id == gasLpId && statusOpp == statusAsignadoId && extraInfo.vehiculo ) {
                         let typeModule = action = responseOpp = responseProduct = '';
                        
                         let internalFileId = searchXmlFile(search);
                         let xmlContent = file.load({ id: internalFileId }).getContents();
-                        let dataProduct = setDataProduct(rowItem, articulos[0], zonaPrecio);
+                        
+                        let dataProduct = setDataProduct(rowItem, articulos, zonaPrecio);
                         log.debug('DataProduct', dataProduct);
                         typeModule = "Productos";
                         action = "registrar";
@@ -260,12 +263,74 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
 
              return articlesArray;
         }
+        
+        // Obtiene información adicional de la oportunidad (vehículo, zona de precio, costo de del producto)
+        const getOppInfo = (rowItem) => {
+            let obj = {};
+
+            var opportunitySearchObj = search.create({
+                type: "opportunity",
+                filters:
+                [
+                //    ["custbody_ptg_estado_pedido","anyof","2"], 
+                //    "AND", 
+                    ["internalid","anyof",rowItem.id], 
+                ],
+                columns:
+                [
+                    search.createColumn({name: "title", label: "Título"}),
+                    search.createColumn({
+                        name: "tranid",
+                        sort: search.Sort.DESC,
+                        label: "Número de documento"
+                    }),
+                    search.createColumn({name: "entity", label: "Cliente"}),
+                    search.createColumn({name: "salesrep", label: "Representante de ventas"}),
+                    search.createColumn({name: "trandate", label: "Fecha"}),
+                    search.createColumn({name: "custbody_ptg_numero_viaje", label: "Número de Viaje"}),
+                    search.createColumn({name: "custbody_ptg_ruta_asignada", label: "PTG - RUTA ASIGNADA"}),
+                    search.createColumn({name: "custbody_ptg_precio_articulo_zona", label: "PTG - PRECIO DEL ARICULO EN LA ZONA"}),
+                    search.createColumn({name: "custbody_ptg_zonadeprecioop_", label: "PTG - Zona de precio Oportuidad"}),
+                    search.createColumn({name: "custbody_ptg_folio_aut", label: "PTG - FOLIO DE AUTORIZACIÓN"}),
+                    search.createColumn({name: "custbody_ptg_folio_sgc_", label: "PTG - Folio SGC"}),
+                    search.createColumn({
+                        name: "custrecord_ptg_vehiculo_tabladeviajes_",
+                        join: "CUSTBODY_PTG_NUMERO_VIAJE",
+                        label: "PTG - Vehiculo (Tabla de Viajes)"
+                    })
+                ]
+             });
+            var searchResultCount = opportunitySearchObj.runPaged().count;
+            log.debug("opportunitySearchObj result count",searchResultCount);
+            opportunitySearchObj.run().each(function(result) {
+                let resValues = result.getAllValues();
+                // log.debug('values', resValues);
+
+                obj = {
+                    folioSgc       : resValues.custbody_ptg_folio_sgc_,
+                    numViaje       : resValues.custbody_ptg_numero_viaje[0].text,
+                    precioProducto : resValues.custbody_ptg_precio_articulo_zona,
+                    vehiculo       : resValues['CUSTBODY_PTG_NUMERO_VIAJE.custrecord_ptg_vehiculo_tabladeviajes_'][0].text,
+                };
+
+                // .run().each has a limit of 4,000 results
+                return true;
+            });
+             
+            return obj;
+        }
 
         // Configura los datos a enviar para el producto
-        const setDataProduct = (rowPedido, articulo, zonaPrecio) => {
+        const setDataProduct = (rowPedido, articulos, zonaPrecio) => {
             // let tipo_pago = ( type == 'edit' ? rowPedido.getValue({fieldId: 'custentity_ptg_alianza_comercial_cliente'}) : rowPedido.getValue({fieldId:'custentity_ptg_alianza_comercial_cliente'}) );
-            let precioSinImpuesto = Number(parseFloat(articulo.rate).toFixed(2));
-            let precioVenta = Number(parseFloat(precioSinImpuesto * 1.16).toFixed(2));
+            let artGLP = articulos[0];
+            let artDescuento = articulos[1] ? articulos[1] : null;
+            let precioSinImpuesto = 0.00;
+            let precioVenta = 0.00;
+            
+            precioSinImpuesto = Number(parseFloat(artGLP.rate).toFixed(2));
+            precioVenta       = Number(parseFloat(precioSinImpuesto * 1.16).toFixed(2));
+
             let data = {
                 "nombre":"GAS LP "+zonaPrecio,
                 "identificador_externo":zonaPrecio,

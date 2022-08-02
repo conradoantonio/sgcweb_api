@@ -45,66 +45,68 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
          */
         const afterSubmit = (scriptContext) => {
             try {
-                // Se actualiza el campo tipo check
-                var custom = scriptContext.newRecord;// Get edited customer
-
-                record.submitFields({
-                    type: record.Type.CUSTOMER,
-                    id: custom.id,
-                    values: {
-                        'custentity_ptg_cliente_act_sgc': "T",
-                    }
-                });
+                if( scriptContext.type === scriptContext.UserEventType.CREATE || scriptContext.type === scriptContext.UserEventType.CREATE ) {
+                    // Se actualiza el campo tipo check
+                    var custom = scriptContext.newRecord;// Get edited customer
+    
+                    record.submitFields({
+                        type: record.Type.CUSTOMER,
+                        id: custom.id,
+                        values: {
+                            'custentity_ptg_cliente_act_sgc': "T",
+                        }
+                    });
+                }
                 
                 let idToken = login();
 
                 if( scriptContext.type === scriptContext.UserEventType.CREATE ) {
-                    let rowCustomer = scriptContext.newRecord;// Get edited customer
-                    // Obtiene un objeto con campos de cabecera
-                    let customerInfo = search.lookupFields({
-                        type: search.Type.CUSTOMER,
-                        id: rowCustomer.id,
-                        columns: ['companyname']
-                    });
-                    let internalFileId = searchXmlFile(search);
-                    let dirDefault = searchDefaultAddress(search, rowCustomer);
-                    let dataToSend = setDataCustomer(rowCustomer, customerInfo, dirDefault, 'create');
+                    // let rowCustomer = scriptContext.newRecord;// Get edited customer
+                    // // Obtiene un objeto con campos de cabecera
+                    // let customerInfo = search.lookupFields({
+                    //     type: search.Type.CUSTOMER,
+                    //     id: rowCustomer.id,
+                    //     columns: ['companyname']
+                    // });
+                    // let internalFileId = searchXmlFile(search);
+                    // let dirDefault = searchDefaultAddress(search, rowCustomer);
+                    // let dataToSend = setDataCustomer(rowCustomer, customerInfo, dirDefault, 'create');
                     
-                    log.debug('Info', 'Edición de cliente');
-                    log.debug('Customer aditional info', customerInfo);
-                    log.debug('Xml ID', internalFileId);
-                    log.debug('formato de direccion', dirDefault);
-                    log.debug('data customer', dataToSend);
+                    // log.debug('Info', 'Edición de cliente');
+                    // log.debug('Customer aditional info', customerInfo);
+                    // log.debug('Xml ID', internalFileId);
+                    // log.debug('formato de direccion', dirDefault);
+                    // log.debug('data customer', dataToSend);
 
-                    // Se busca la información de la dirección por defecto
-                    let xmlContent = file.load({ id: internalFileId }).getContents();
-                    let typeModule = "Clientes";
-                    let action = "registrar";
+                    // // Se busca la información de la dirección por defecto
+                    // let xmlContent = file.load({ id: internalFileId }).getContents();
+                    // let typeModule = "Clientes";
+                    // let action = "registrar";
 
-                    let responseInfo = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
+                    // let responseInfo = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
 
-                    log.debug('response info', responseInfo);
+                    // log.debug('response info', responseInfo);
 
-                    // Se validará que haya salido bien el response
-                    if (["1111", "0000"].includes(responseInfo.code[0].textContent) ) {
-                        log.debug('Response code info', 'Todo salió bien');
-                        let realResult = JSON.parse(responseInfo.info[0].textContent);
-                        log.debug('respuesta sgcweb', realResult);
-                        log.debug('numero de cliente de sgcweb', realResult.numero_cliente);
+                    // // Se validará que haya salido bien el response
+                    // if (["1111", "0000"].includes(responseInfo.code[0].textContent) ) {
+                    //     log.debug('Response code info', 'Todo salió bien');
+                    //     let realResult = JSON.parse(responseInfo.info[0].textContent);
+                    //     log.debug('respuesta sgcweb', realResult);
+                    //     log.debug('numero de cliente de sgcweb', realResult.numero_cliente);
 
-                        // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
-                        record.submitFields({
-                            type: record.Type.CUSTOMER,
-                            id: rowCustomer.id,
-                            values: {
-                                'custentity_ptg_codigodecliente_': realResult.numero_cliente
-                            }
-                        });
+                    //     // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
+                    //     record.submitFields({
+                    //         type: record.Type.CUSTOMER,
+                    //         id: rowCustomer.id,
+                    //         values: {
+                    //             'custentity_ptg_codigodecliente_': realResult.numero_cliente
+                    //         }
+                    //     });
 
-                        log.debug('Actualización', 'Código de cliente actualizado');
-                    } else {
-                        log.debug('Ocurrió un error en clientes', responseInfo.code[0].textContent);
-                    }
+                    //     log.debug('Actualización', 'Código de cliente actualizado');
+                    // } else {
+                    //     log.debug('Ocurrió un error en clientes', responseInfo.code[0].textContent);
+                    // }
                     //////////////////////////////////////////////////////////////////////////////
                 }
                 else if ( scriptContext.type === scriptContext.UserEventType.EDIT ) {
