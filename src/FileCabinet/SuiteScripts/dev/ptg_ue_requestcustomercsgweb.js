@@ -70,9 +70,10 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                     let customerInfo = search.lookupFields({
                         type: search.Type.CUSTOMER,
                         id: rowCustomer.id,
-                        columns: ['companyname', 'altname', 'phone', 'altphone', 'email', 'balance']
+                        columns: ['companyname', 'altname', 'phone', 'altphone', 'email', 'balance', 'entityid']
                     });
                     log.debug('customerInfo', customerInfo);
+                    // log.debug('entityId', entityId);
                     // return;
                     // let dirDefault = searchDefaultAddress(search, rowCustomer);
                     // let isConsumer = rowCustomer.getValue({fieldId:'parent'});
@@ -82,10 +83,10 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                     // log.debug('Politica de venta', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeventa_'}));
                     // log.debug('Politica de consumo', rowCustomer.getValue({fieldId:'custentity_ptg_politicadeconsumo_cliente'}));
                     
-                    log.debug('Xml ID', internalFileId);
+                    // log.debug('Xml ID', internalFileId);
                     // log.debug('Listado de direcciones', customerAddresses);
                     // log.debug('data customer', dataToSend);
-
+                    // return;
                     let typeModule = action = responseConsPol = '';
                     let xmlContent = file.load({ id: internalFileId }).getContents();
 
@@ -280,6 +281,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
         const setDataCustomer = (rowCustomer, aditionalCustomerInfo = false, politicaId, defaultAddress, type) => {
             // log.debug('info', 'entró a la función de configurar la información del cliente');
 
+            let entityId  = aditionalCustomerInfo.entityid;
             let nombre    = ( type == 'edit' ? rowCustomer.getText({fieldId:'altname'}) : aditionalCustomerInfo?.altname );
             // let nombre    = ( type == 'edit' ? rowCustomer.getText({fieldId:'companyname'}) : aditionalCustomerInfo?.companyname );
             let rfc       = ( type == 'edit' ? rowCustomer.getText({fieldId:'custentity_mx_rfc'}) : rowCustomer.getValue({fieldId:'custentity_mx_rfc'}) );
@@ -291,7 +293,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
             let data = {
                 "numero_cliente":"",
-                "identificador_externo": "0000"+rowCustomer.id,
+                "identificador_externo": "0000"+entityId,
                 "nombre":nombre ? nombre : "Nombre cliente",
                 "rfc":rfc ? rfc : "XAXX010101000",
                 "calle":defaultAddress.calle ?? "",
@@ -321,11 +323,12 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
         const setDataConsumer = (rowCustomer, aditionalCustomerInfo = false, politicaId, clienteId, address, type) => {
             // log.debug('info', 'entró a la función de configurar la información del cliente');
 
+            let entityId   = aditionalCustomerInfo.entityid;
             let nombre     = ( type == 'edit' ? rowCustomer.getText({fieldId:'altname'}) : aditionalCustomerInfo.altname ?? 'Consumidor genérico' );
             // let telefono1  = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : aditionalCustomerInfo.phone ?? 'industrial' );
             let telefono2  = ( type == 'edit' ? rowCustomer.getText({fieldId:'altphone'}) : aditionalCustomerInfo.altphone ?? '' );
             let email      = ( type == 'edit' ? rowCustomer.getText({fieldId:'email'}) : aditionalCustomerInfo.email ?? 'anymail@gmail.com' );
-            let saldo     = ( type == 'edit' ? rowCustomer.getText({fieldId:'balance'}) : aditionalCustomerInfo.balance ?? 0 );
+            let saldo      = ( type == 'edit' ? rowCustomer.getText({fieldId:'balance'}) : aditionalCustomerInfo.balance ?? 0 );
             saldo = ( saldo ? Number( parseFloat( saldo ).toFixed(2) ) : 0.00);
 
             let calle = address.calle;
@@ -334,7 +337,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
             let data = {
                 "numero_consumidor":"",
-                "identificador_externo": "0000"+address.id,
+                "identificador_externo": entityId+'-'+address.etiqueta,
                 // "identificador_externo": "0000"+address.id+address.etiqueta,
                 "nombres":nombre ? nombre : "Nombre consumidor",
                 "apellidos":".",
