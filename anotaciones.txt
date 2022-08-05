@@ -152,3 +152,7 @@ Cambiar la lógica del script de actualizar servicios, estos se van a consultar 
 - Si no se encuentra el folio, se crea una oportunidad nueva
 - Crear una búsqueda guardada que traiga el número de viaje activo acorde al número de vehículo de SGC web (en caso de que sea un antojado)
 Nota: El estado debe quedar como concretado, el campo estado de pedido debe ser entregado
+
+Notas pruebas integrales:
+// el identificador externo del cliente va a ser el campo entityid, no el id interno
+// el identificador externo del consumidor va a ser el campo entityid concatenado con guion (-) número de etiqueta

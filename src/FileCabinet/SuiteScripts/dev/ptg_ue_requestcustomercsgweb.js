@@ -60,61 +60,20 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                 
                 let idToken = login();
 
-                if( scriptContext.type === scriptContext.UserEventType.CREATE ) {
-                    // let rowCustomer = scriptContext.newRecord;// Get edited customer
-                    // // Obtiene un objeto con campos de cabecera
-                    // let customerInfo = search.lookupFields({
-                    //     type: search.Type.CUSTOMER,
-                    //     id: rowCustomer.id,
-                    //     columns: ['companyname']
-                    // });
-                    // let internalFileId = searchXmlFile(search);
-                    // let dirDefault = searchDefaultAddress(search, rowCustomer);
-                    // let dataToSend = setDataCustomer(rowCustomer, customerInfo, dirDefault, 'create');
-                    
-                    // log.debug('Info', 'Edición de cliente');
-                    // log.debug('Customer aditional info', customerInfo);
-                    // log.debug('Xml ID', internalFileId);
-                    // log.debug('formato de direccion', dirDefault);
-                    // log.debug('data customer', dataToSend);
-
-                    // // Se busca la información de la dirección por defecto
-                    // let xmlContent = file.load({ id: internalFileId }).getContents();
-                    // let typeModule = "Clientes";
-                    // let action = "registrar";
-
-                    // let responseInfo = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
-
-                    // log.debug('response info', responseInfo);
-
-                    // // Se validará que haya salido bien el response
-                    // if (["1111", "0000"].includes(responseInfo.code[0].textContent) ) {
-                    //     log.debug('Response code info', 'Todo salió bien');
-                    //     let realResult = JSON.parse(responseInfo.info[0].textContent);
-                    //     log.debug('respuesta sgcweb', realResult);
-                    //     log.debug('numero de cliente de sgcweb', realResult.numero_cliente);
-
-                    //     // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
-                    //     record.submitFields({
-                    //         type: record.Type.CUSTOMER,
-                    //         id: rowCustomer.id,
-                    //         values: {
-                    //             'custentity_ptg_codigodecliente_': realResult.numero_cliente
-                    //         }
-                    //     });
-
-                    //     log.debug('Actualización', 'Código de cliente actualizado');
-                    // } else {
-                    //     log.debug('Ocurrió un error en clientes', responseInfo.code[0].textContent);
-                    // }
-                    //////////////////////////////////////////////////////////////////////////////
-                }
-                else if ( scriptContext.type === scriptContext.UserEventType.EDIT ) {
+                if ( scriptContext.type === scriptContext.UserEventType.EDIT || scriptContext.type === scriptContext.UserEventType.CREATE ) {
                     log.debug('Info', 'Edición de cliente');
 
+                    let actionType = scriptContext.type === scriptContext.UserEventType.EDIT ? 'edit' : 'new';
                     let rowCustomer = scriptContext.newRecord;// Get edited customer
                     let internalFileId = searchXmlFile();
                     let customerAddresses = searchCustomerAddresses(rowCustomer.id);
+                    let customerInfo = search.lookupFields({
+                        type: search.Type.CUSTOMER,
+                        id: rowCustomer.id,
+                        columns: ['companyname', 'altname', 'phone', 'altphone', 'email', 'balance']
+                    });
+                    log.debug('customerInfo', customerInfo);
+                    // return;
                     // let dirDefault = searchDefaultAddress(search, rowCustomer);
                     // let isConsumer = rowCustomer.getValue({fieldId:'parent'});
                     // log.debug('Alianza comercial', rowCustomer.getValue({fieldId: 'custentity_ptg_alianza_comercial_cliente'}));
@@ -133,7 +92,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                     // Se da de alta la política de venta
                     typeModule = "PoliticasVenta";
                     action = "registrar";
-                    dataSalesPolicy = setDataSalesPolicy(rowCustomer, null, 'edit');
+                    dataSalesPolicy = setDataSalesPolicy(rowCustomer, customerInfo, actionType);
                     responseConsPol = registerSgcData(xmlContent, idToken, typeModule, action, dataSalesPolicy);
                     log.debug('Info', 'Entró a registrar una política de venta');
 
@@ -147,7 +106,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                     // Se da de alta el cliente
                     typeModule = "Clientes";
                     action = "registrar";
-                    dataCustomer = setDataCustomer(rowCustomer, null, dataSalesPolicy.identificador_externo, customerAddresses.default, 'edit');
+                    dataCustomer = setDataCustomer(rowCustomer, customerInfo, dataSalesPolicy.identificador_externo, customerAddresses.default, actionType);
                     responseCustomer = registerSgcData(xmlContent, idToken, typeModule, action, dataCustomer);
                     log.debug('Info', 'Entró a registrar un cliente');
 
@@ -176,7 +135,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                     for (let j = 0; j < allAddress.length; j++) {
                         typeModule = "PoliticasConsumo";
                         action = "registrar";
-                        dataConsumptionPolicy = setDataConsumptionPolicy(rowCustomer, allAddress[j], 'edit');
+                        dataConsumptionPolicy = setDataConsumptionPolicy(rowCustomer, allAddress[j], actionType);
                         responseConsumptionPolicy = registerSgcData(xmlContent, idToken, typeModule, action, dataConsumptionPolicy);
                         log.debug('Info', 'Entró a registrar una política de consumo');
 
@@ -188,7 +147,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                             // Se da de alta el consumidor junto con su política de consumo recién creada
                             typeModule = "Consumidores";
                             action = "registrar";
-                            dataConsumer = setDataConsumer(rowCustomer, null, dataConsumptionPolicy.identificador_externo, dataCustomer.identificador_externo, allAddress[j], 'edit');
+                            dataConsumer = setDataConsumer(rowCustomer, customerInfo, dataConsumptionPolicy.identificador_externo, dataCustomer.identificador_externo, allAddress[j], actionType);
                             responseConsumer = registerSgcData(xmlContent, idToken, typeModule, action, dataConsumer);
                             log.debug('Info', 'Entró a registrar un consumidor');
 
@@ -353,6 +312,8 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                 "politica_venta_id":politicaId ?? ""
             };
 
+            log.debug('Data customer', data);
+
             return data;
         }
 
@@ -360,24 +321,28 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
         const setDataConsumer = (rowCustomer, aditionalCustomerInfo = false, politicaId, clienteId, address, type) => {
             // log.debug('info', 'entró a la función de configurar la información del cliente');
 
-            let nombre     = ( type == 'edit' ? rowCustomer.getText({fieldId:'altname'}) : aditionalConsumerInfo?.companyname );
-            let telefono1  = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : rowCustomer.getValue({fieldId:'phone'}) );
-            let telefono2  = ( type == 'edit' ? rowCustomer.getText({fieldId:'altphone'}) : rowCustomer.getValue({fieldId:'altphone'}) );
-            let email      = ( type == 'edit' ? rowCustomer.getText({fieldId:'email'}) : rowCustomer.getValue({fieldId:'email'}) );
-            let saldo     = ( type == 'edit' ? rowCustomer.getText({fieldId:'balance'}) : rowCustomer.getValue({fieldId:'balance'}) );
+            let nombre     = ( type == 'edit' ? rowCustomer.getText({fieldId:'altname'}) : aditionalCustomerInfo.altname ?? 'Consumidor genérico' );
+            // let telefono1  = ( type == 'edit' ? rowCustomer.getText({fieldId:'phone'}) : aditionalCustomerInfo.phone ?? 'industrial' );
+            let telefono2  = ( type == 'edit' ? rowCustomer.getText({fieldId:'altphone'}) : aditionalCustomerInfo.altphone ?? '' );
+            let email      = ( type == 'edit' ? rowCustomer.getText({fieldId:'email'}) : aditionalCustomerInfo.email ?? 'anymail@gmail.com' );
+            let saldo     = ( type == 'edit' ? rowCustomer.getText({fieldId:'balance'}) : aditionalCustomerInfo.balance ?? 0 );
             saldo = ( saldo ? Number( parseFloat( saldo ).toFixed(2) ) : 0.00);
+
+            let calle = address.calle;
+            address.numExt ? calle += ' NO. EXT. '+ address.numExt : '';
+            address.numInt ? calle += ' NO. INT. '+ address.numInt : '';
 
             let data = {
                 "numero_consumidor":"",
                 "identificador_externo": "0000"+address.id,
                 // "identificador_externo": "0000"+address.id+address.etiqueta,
                 "nombres":nombre ? nombre : "Nombre consumidor",
-                "apellidos":"Doe",
-                "telefono1":telefono1 ? telefono1 : "industrial",
+                "apellidos":".",
+                "telefono1":address.telefonoPrincipal ?? "industrial",
                 "telefono2":telefono2 ?? "",
                 "descripcion":"Consumidor de cliente "+clienteId,
                 "comentario" :"",
-                "calle_numero":address.numExt ?? "",
+                "calle_numero":calle ? calle : "",
                 "colonia":address.colonia ?? "",
                 "ciudad":address.ciudad ?? "",
                 "estado":address.estado ?? "",
@@ -390,7 +355,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                 "cliente_id":clienteId,
                 "capacidad":"150",
                 "tipo_pago":"",
-                "numero_verificador":address.etiqueta,
+                "numero_verificador":"",
                 "ruta_id":""
             };
             // Falta la lógica para obtener la ruta asignada, tipo de cliente (campo tipo_consumidor)
@@ -417,7 +382,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                 "identificador_externo":identificador,
                 "activa":"1",
                 "tipo_pago":tipo_pago,
-                "limite_credito":limite_credito,
+                "limite_credito":identificador == 'CONTADO' ? 0 : limite_credito,
                 "numero_semanas_credito":1,
                 "frecuencia_factura":0,
                 "facturar_todos_servicios":0,

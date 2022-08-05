@@ -82,7 +82,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
                         if (["1111", "0000"].includes(responseProduct.code[0].textContent) ) {
                             log.debug('SGC', 'Producto registrado correctamente');
                             
-                            let dataOpp = setDataOpportunity(rowItem, dataProduct.identificador_externo, articulos, addressId);
+                            let dataOpp = setDataOpportunity(rowItem, dataProduct.identificador_externo, articulos, addressId, extraInfo.vehiculo);
                             typeModule = "Pedidos";
                             action = "registrar";
                             responseOpp = registerSgcData(xmlContent, idToken, typeModule, action, dataOpp);
@@ -102,14 +102,23 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
                                 // log.debug('Respuesta decodificada', realResult);
                                 
                                 // Se edita el campo custentity_ptg_extermal_id para empatarlo con SGC Web
-                                record.submitFields({
-                                    type: record.Type.OPPORTUNITY,
-                                    id: rowItem.id,
-                                    values: {
-                                        'custbody_ptg_folio_sgc_': realResult.folio
-                                        // 'custbody_ptg_folio_aut': realResult.folio
-                                    }
-                                });
+                                // record.submitFields({
+                                //     type: record.Type.OPPORTUNITY,
+                                //     id: rowItem.id,
+                                //     values: {
+                                //         'custbody_ptg_folio_sgc_': realResult.folio
+                                //         // 'custbody_ptg_folio_aut': realResult.folio
+                                //     }
+                                // });
+
+                                // record.submitFields({
+                                //     type: record.Type.OPPORTUNITY,
+                                //     id: rowItem.id,
+                                //     values: {
+                                //         // 'custbody_ptg_folio_sgc_': realResult.folio
+                                //         'custbody_ptg_folio_aut': realResult.folio
+                                //     }
+                                // });
                                 log.debug('Actualización', 'Folio de pedido actualizado');
                             } else {
                                 log.debug('Ocurrió un error al guardar el pedido en sgc', responseOpp.code[0].textContent);
@@ -328,8 +337,8 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
             let precioSinImpuesto = 0.00;
             let precioVenta = 0.00;
             
-            precioSinImpuesto = Number(parseFloat(artGLP.rate).toFixed(2));
-            precioVenta       = Number(parseFloat(precioSinImpuesto * 1.16).toFixed(2));
+            precioSinImpuesto = Number(parseFloat(artGLP.rate).toFixed(4));
+            precioVenta       = Number(parseFloat(precioSinImpuesto * 1.16).toFixed(4));
 
             let data = {
                 "nombre":"GAS LP "+zonaPrecio,
@@ -349,7 +358,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
         }
 
         // Configura los datos a enviar del producto a SGC web
-        const setDataOpportunity = (rowItem, productoId, articulos, direccionId) => {
+        const setDataOpportunity = (rowItem, productoId, articulos, direccionId, vehiculo) => {
 
             let fechaCreacion = horaCreacion = fechaDividida = horaDividida = horaMinDividida = fechaAtencion = anio = mes = dia = hora = min = isPm = horaMin = '';
             let trandate          = rowItem.getValue({fieldId:'trandate'});
@@ -398,7 +407,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
             let data = {
                 // "folio":"",
                 "identificador_externo": rowItem.id,
-                "fecha_atencion":fechaAtencion,
+                "fecha_atencion":"2022-08-02 16:24:00",
                 "fecha_servicio":"",
                 "fecha_modificacion":"",
                 "estatus":"",
@@ -410,7 +419,7 @@ define(['N/file', 'N/http', 'N/record', 'N/search', 'N/xml', 'N/format'],
                 "usuario_asignado_id":"",
                 "consumidor_id":"0000".concat(direccionId),
                 "lista_unidades_id":"",
-                "ruta_id":"2051",
+                "ruta_id":"2139",
                 // "ruta_id":rutaId,
                 "motivo_cancelacion":motivoCancelacion,
             };

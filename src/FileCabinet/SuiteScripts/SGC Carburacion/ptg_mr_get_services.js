@@ -115,8 +115,8 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                 /**
                  * Se consultan los servicios por planta y se iteran mediante un for, guardando una opotunidad por cada registro
                  */
-                for ( let a = 0; a < 1; a++ ) {
-                // for ( let a = 0; a < services.length; a++ ) {
+                // for ( let a = 0; a < 1; a++ ) {
+                for ( let a = 0; a < services.length; a++ ) {
                     let item     = services[a];
                     let producto = item.producto == 'GLP' ? 'GLP' : null;
                     let bomba    = item.dispensador == 1 ? 1 : 2;
