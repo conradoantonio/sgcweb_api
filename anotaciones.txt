@@ -156,3 +156,11 @@ Nota: El estado debe quedar como concretado, el campo estado de pedido debe ser 
 Notas pruebas integrales:
 // el identificador externo del cliente va a ser el campo entityid, no el id interno
 // el identificador externo del consumidor va a ser el campo entityid concatenado con guion (-) número de etiqueta
+// el array de descuentos debe enviarse en la interfaz de productos
+
+// Roles que se colocan en las implementaciones de los scripts
+Administrador
+PTG - Call Center - Agente HEB
+PTG - Call Center - Supervisor
+PTG - Monitor
+PTG - Agente Call Center

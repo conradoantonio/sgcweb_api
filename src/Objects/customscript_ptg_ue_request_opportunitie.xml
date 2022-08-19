@@ -1,5 +1,5 @@
 <usereventscript scriptid="customscript_ptg_ue_request_opportunitie">
-  <description>Script para enviar información a SGC web</description>
+  <description>Script para enviar información de pedidos a SGC web</description>
   <isinactive>F</isinactive>
   <name>PTG|UE|REQUEST OPPORTUNITIES</name>
   <notifyadmins>F</notifyadmins>
@@ -9,14 +9,14 @@
   <scriptfile>[/SuiteScripts/dev/ptg_ue_request_opportunities.js]</scriptfile>
   <scriptdeployments>
     <scriptdeployment scriptid="customdeploy_ptg_ue_request_opportunitie">
-      <allemployees>F</allemployees>
+      <allemployees>T</allemployees>
       <alllocalizationcontexts>T</alllocalizationcontexts>
       <allpartners>F</allpartners>
-      <allroles>F</allroles>
+      <allroles>T</allroles>
       <audslctrole></audslctrole>
       <eventtype></eventtype>
       <executioncontext>ACTION|ADVANCEDREVREC|BANKCONNECTIVITY|BANKSTATEMENTPARSER|BUNDLEINSTALLATION|CLIENT|CONSOLRATEADJUSTOR|CSVIMPORT|CUSTOMGLLINES|CUSTOMMASSUPDATE|DATASETBUILDER|DEBUGGER|EMAILCAPTURE|FICONNECTIVITY|FIPARSER|MAPREDUCE|OTHER|PAYMENTGATEWAY|PAYMENTPOSTBACK|PLATFORMEXTENSION|PORTLET|PROMOTIONS|RECORDACTION|RESTLET|RESTWEBSERVICES|SCHEDULED|SDFINSTALLATION|SHIPPINGPARTNERS|SUITELET|TAXCALCULATION|USEREVENT|USERINTERFACE|WEBSERVICES|WORKBOOKBUILDER|WORKFLOW</executioncontext>
-      <isdeployed>T</isdeployed>
+      <isdeployed>F</isdeployed>
       <loglevel>DEBUG</loglevel>
       <recordtype>OPPORTUNITY</recordtype>
       <runasrole></runasrole>

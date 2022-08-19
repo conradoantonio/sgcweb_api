@@ -72,6 +72,8 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                         id: rowCustomer.id,
                         columns: ['companyname', 'altname', 'phone', 'altphone', 'email', 'balance', 'entityid']
                     });
+                    let tipo_pago       = ( actionType == 'edit' ? rowCustomer.getValue({fieldId: 'custentity_ptg_alianza_comercial_cliente'}) : rowCustomer.getValue({fieldId:'custentity_ptg_alianza_comercial_cliente'}) );
+                    let idPoliticaVenta = tipo_pago == 2 ? 'CREDITO_DEFAULT' : 'CONTADO';
                     log.debug('customerInfo', customerInfo);
                     // log.debug('entityId', entityId);
                     // return;
@@ -91,23 +93,24 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
                     let xmlContent = file.load({ id: internalFileId }).getContents();
 
                     // Se da de alta la política de venta
-                    typeModule = "PoliticasVenta";
-                    action = "registrar";
-                    dataSalesPolicy = setDataSalesPolicy(rowCustomer, customerInfo, actionType);
-                    responseConsPol = registerSgcData(xmlContent, idToken, typeModule, action, dataSalesPolicy);
-                    log.debug('Info', 'Entró a registrar una política de venta');
+                    // typeModule = "PoliticasVenta";
+                    // action = "registrar";
+                    // dataSalesPolicy = setDataSalesPolicy(rowCustomer, customerInfo, actionType);
+                    // responseConsPol = registerSgcData(xmlContent, idToken, typeModule, action, dataSalesPolicy);
+                    // log.debug('Info', 'Entró a registrar una política de venta');
 
-                    if (["1111", "0000"].includes(responseConsPol.code[0].textContent) ) {
-                        log.debug('SGC', 'Política de venta registrada');
-                        log.debug('Respuesta sgcweb política de venta', responseConsPol.info);
-                    } else {
-                        log.debug('Ocurrió un error en políticas de venta', responseConsPol.code[0].textContent);
-                    }
-
+                    // if (["1111", "0000"].includes(responseConsPol.code[0].textContent) ) {
+                    //     log.debug('SGC', 'Política de venta registrada');
+                    //     log.debug('Respuesta sgcweb política de venta', responseConsPol.info);
+                    // } else {
+                    //     log.debug('Ocurrió un error en políticas de venta', responseConsPol.code[0].textContent);
+                    // }
+                    // return;
                     // Se da de alta el cliente
                     typeModule = "Clientes";
                     action = "registrar";
-                    dataCustomer = setDataCustomer(rowCustomer, customerInfo, dataSalesPolicy.identificador_externo, customerAddresses.default, actionType);
+                    dataCustomer = setDataCustomer(rowCustomer, customerInfo, idPoliticaVenta, customerAddresses.default, actionType);
+                    // dataCustomer = setDataCustomer(rowCustomer, customerInfo, dataSalesPolicy.identificador_externo, customerAddresses.default, actionType);
                     responseCustomer = registerSgcData(xmlContent, idToken, typeModule, action, dataCustomer);
                     log.debug('Info', 'Entró a registrar un cliente');
 
@@ -226,8 +229,10 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
             let headers = {};
             headers['Content-Type'] = 'text/xml; charset=utf-8';
-            headers['SOAPAction'] = 'http://testpotogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/login';
-            let url = 'http://testpotogas.sgcweb.com.mx//ws/1094AEV2/v2/soap.php';
+            // headers['SOAPAction'] = 'http://testpotogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/login';
+            // let url = 'http://testpotogas.sgcweb.com.mx//ws/1094AEV2/v2/soap.php';
+            headers['SOAPAction'] = 'http://potogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/login';
+            let url = 'http://potogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php';
             // Method, url, body, headers
             let response = http.request({ method: http.Method.POST, url: url, body: xmlContent, headers: headers });
             // log.debug('response', response.body)
@@ -293,7 +298,7 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
             let data = {
                 "numero_cliente":"",
-                "identificador_externo": "0000"+entityId,
+                "identificador_externo": entityId,
                 "nombre":nombre ? nombre : "Nombre cliente",
                 "rfc":rfc ? rfc : "XAXX010101000",
                 "calle":defaultAddress.calle ?? "",
@@ -521,6 +526,8 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
         // Guarda / actualiza un cliente en SGC web
         const registerSgcData = (xmlContent, idToken, typeModule, action, data) => {
+            log.debug('data', data);
+            log.debug('typeModule', typeModule);
             xmlContent = xmlContent.split('idSession').join(`${idToken}`);
             xmlContent = xmlContent.split('typeModule').join(`${typeModule}`);
             xmlContent = xmlContent.split('action').join(`${action}`);
@@ -530,8 +537,12 @@ define(['N/file', 'N/http', 'N/search', 'N/xml', 'N/record', 'N/query'],
 
             let headers = {};
             headers['Content-Type'] = 'text/xml; charset=utf-8';
-            headers['SOAPAction'] = 'http://testpotogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/procesarPeticion';
-            let url = 'http://testpotogas.sgcweb.com.mx//ws/1094AEV2/v2/soap.php';
+            // headers['SOAPAction'] = 'http://testpotogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/procesarPeticion';
+            // let url = 'http://testpotogas.sgcweb.com.mx//ws/1094AEV2/v2/soap.php';
+           
+            headers['SOAPAction'] = 'http://potogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/procesarPeticion';
+            let url = 'http://potogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php';
+           
             let response = http.request({ method: http.Method.POST, url: url, body: xmlContent, headers: headers });                    
             // log.debug('response', response.body)
             let xmlFileContent = response.body;

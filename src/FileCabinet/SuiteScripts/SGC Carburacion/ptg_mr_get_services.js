@@ -85,9 +85,12 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                 let currency        = 1;
                 let tipo_servicio   = 3;// Carburación
                 let entity_status   = 13;
-                let customform      = 307;
-                let productgasLpId  = 4088;
-                let publico_general = 14508;
+                // let customform      = 307;
+                let customform      = 264;
+                // let productgasLpId  = 4088;
+                let productgasLpId = 4216;
+                // let publico_general = 14508;
+                let publico_general = 27041;
                 let mapValues = JSON.parse(mapContext.value);
                 
                 log.debug('Valores map', mapValues);
@@ -96,13 +99,14 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                 let headers  = [];
                 let postData = {
                     "ip": mapValues.ip,
-                    "folio": mapValues.contador,
-                    "prueba": "true"
+                    "folio": Number(mapValues.contador)+1,
+                    // "prueba": "true"
                 };
                 postData = JSON.stringify(postData);
                 headers['Content-Type'] = 'application/json';
 
-                let url = 'https://i-ptg-sgclc-middleware-api-dtt-middleware.apps.mw-cluster.kt77.p1.openshiftapps.com/api/carburacion/procesarPeticion';
+                // let url = 'https://i-ptg-sgclc-middleware-api-dtt-middleware.apps.mw-cluster.kt77.p1.openshiftapps.com/api/carburacion/procesarPeticion';
+                let url = 'https://ba2a-177-226-112-81.ngrok.io/api/carburacion/procesarPeticion';
                 
                 let response = https.post({
                     url: url,
@@ -110,7 +114,9 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                     body: postData
                 });
 
-                let services = JSON.parse(response.body);
+                let responseJson = JSON.parse(response.body);
+                let services     = responseJson.servicios;
+                // log.debug('services', services);
 
                 /**
                  * Se consultan los servicios por planta y se iteran mediante un for, guardando una opotunidad por cada registro
@@ -118,7 +124,7 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                 // for ( let a = 0; a < 1; a++ ) {
                 for ( let a = 0; a < services.length; a++ ) {
                     let item     = services[a];
-                    let producto = item.producto == 'GLP' ? 'GLP' : null;
+                    let producto = item.producto.trim() == 'GLP' ? 'GLP' : null;
                     let bomba    = item.dispensador == 1 ? 1 : 2;
                     // Si no es producto de gas lp, no se registra el servicio
                     if (! producto ) { return; }

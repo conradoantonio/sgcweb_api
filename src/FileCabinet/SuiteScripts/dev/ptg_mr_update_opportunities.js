@@ -64,12 +64,16 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 let tipoServicio    = 2;// Estacionario
                 let statusPedido    = 3;// Entregado
                 let entityStatus    = 13;// Concretado
-                let customform      = 305;// PTG - Oportunidad
-                let productgasLpId  = 4088;
-                let publicoGeneral  = 14508;
+                let tipoSgc         = 1;// SGC WEB
+                // let customform      = 305;// PTG - Oportunidad
+                let customform      = 265;// Oportunidad-Potogas
+                // let productgasLpId  = 4088;
+                let productgasLpId  = 4216;
+                let publicoGeneral  = 27041;
+                // let publicoGeneral  = 14508;
                 let mapValues = JSON.parse(mapContext.value);
                 
-                log.debug('Valores map', mapValues);
+                // log.debug('Valores map', mapValues);
                 // log.debug('key', mapContext.key);
                 // log.debug('Map context', mapContext);
                 // log.debug('Map context', JSON.parse(mapContext.value));
@@ -77,7 +81,8 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 let idToken = login();
                 let internalFileId = searchXmlFile(search);
                 let xmlContent = file.load({ id: internalFileId }).getContents();
-                let dataToSend = setServiceData(Number(mapValues.folio) + 1, 3);// Para pruebas, colocar el segundo parámetro en 2
+                // let dataToSend = setServiceData(Number(120065) + 1, 1);// Para pruebas, colocar el segundo parámetro en 2
+                let dataToSend = setServiceData(Number(mapValues.folio) + 1, 10);// Para pruebas, colocar el segundo parámetro en 2
                 let typeModule = "Servicios";
                 let action = "obtenerListaPorFolio";
                 let responseServ = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
@@ -89,9 +94,22 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                  */
                 if (["1111", "0000"].includes(responseServ.code[0].textContent) ) {
                     let servicesValues = JSON.parse(responseServ.info[0].textContent);
-                    
+                    log.debug(servicesValues);
                     servicesValues.forEach(element => {
                         log.debug('Elemento', element);
+                        let viajeActivo = null;
+                        let numViajesActivos = [];
+                        let unidadSgc   = element.unidad ? element.unidad.identificador_externo : null;
+                        
+                        if ( unidadSgc ) {
+                            numViajesActivos = getNumeroViajesActivos(unidadSgc);
+                            if ( numViajesActivos.length > 0 ) {
+                                viajeActivo = numViajesActivos[0].idViaje;
+                            }
+                        }
+                        log.debug('viajeActivo', viajeActivo);
+                        // log.debug('numViajesActivos', numViajesActivos);
+                        // return;
                         let existOpp = getOppByFolio(element.folio);
                         let tipoPago = element.tipo_pago == 1 ? 1 : 2;
                         let tipoServ = ( element.tipo_registro == 'D' ? 1 : ( element.tipo_registro == 'J' ? 2 : element.tipo_registro == 'A' ? 3 : 1 ) );
@@ -130,6 +148,12 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                                 newOpp.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});
                                 newOpp.setText({fieldId:'custbody_totalizador_final_sgc_', text: element.totalizador_final});
                                 newOpp.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
+                                newOpp.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
+                                
+                                // Sólo se setea el número de viaje si es que existe
+                                if ( viajeActivo ) {
+                                    newOpp.setValue({fieldId:'custbody_ptg_numero_viaje', value: viajeActivo});
+                                }
                 
                                 // Se agrega el producto de Gas LP a nivel artículo
                                 newOpp.setSublistValue({
@@ -156,6 +180,10 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                                 log.debug('Info', 'Opotunidad guardada exitósamente: '+oppId);
                                 
                                 updateFolioSgcWeb(mapValues.id, element.folio);
+
+                                // Parche para ejecutar el userevent (Edit) de josé Luis
+                                let myOpp = record.load({id : oppId, type: record.Type.OPPORTUNITY});
+                                myOpp.save();
                                 return;
                             } catch (error) {
                                 log.debug('Error al crear una nueva opp', error);
@@ -166,14 +194,15 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                          * y la oportunidad tiene un status diferente de concretado
                          * y el status del pedido es distinto a entregado, se actualiza la oportunidad
                          */
+                        // else {// PARCHE PARA ACTUALIZAR TEMPORALMENTE LA OPORTUNIDAD
                         else if ( existOpp[0].entityStatusId != entityStatus && existOpp[0].estadoPedidoId != statusPedido) { 
                             log.debug('Hay opp con este folio', 'Se actualiza la opp');
                             try {
                                 // return;
                                 let oppRecord = record.load({id : existOpp[0].id, type: record.Type.OPPORTUNITY});
-                                log.debug('Respuesta sgcweb obtener lista por folio', responseServ.info);
-                                log.debug('Respuesta sgcweb en json', servicesValues);
-                                log.debug('SGC', 'Servicios consultados exitósamente');
+                                // log.debug('Respuesta sgcweb obtener lista por folio', responseServ.info);
+                                // log.debug('Respuesta sgcweb en json', servicesValues);
+                                // log.debug('SGC', 'Servicios consultados exitósamente');
         
                                 oppRecord.setText({fieldId:'custbody_ptg_folio_sgc_', text: element.folio});
                                 // oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: element.fecha_inicio});
@@ -190,6 +219,12 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                                 oppRecord.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
                                 oppRecord.setValue({fieldId:'custbody_ptg_estado_pedido', value: statusPedido});
                                 oppRecord.setValue({fieldId:'entitystatus', value: entityStatus});
+                                oppRecord.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
+
+                                // Sólo se setea el número de viaje si es que existe
+                                if ( viajeActivo ) {
+                                    oppRecord.setValue({fieldId:'custbody_ptg_numero_viaje', value: viajeActivo});
+                                }
                                 
                                 oppRecord.setSublistValue({
                                     sublistId: 'item',
@@ -207,7 +242,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 
                                 oppRecord.save();
                                 
-                                log.debug('Info', 'Registro actualizado exitósamente');
+                                log.debug('Info', 'Registro actualizado exitósamente '+oppRecord.id);
     
                                 // Se actualiza el folio recién guardado
                                 updateFolioSgcWeb(mapValues.id, element.folio);
@@ -317,8 +352,10 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
 
             let headers = {};
             headers['Content-Type'] = 'text/xml; charset=utf-8';
-            headers['SOAPAction'] = 'http://testpotogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/login';
-            let url = 'http://testpotogas.sgcweb.com.mx//ws/1094AEV2/v2/soap.php';
+            // headers['SOAPAction'] = 'http://testpotogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/login';
+            // let url = 'http://testpotogas.sgcweb.com.mx//ws/1094AEV2/v2/soap.php';
+            headers['SOAPAction'] = 'http://potogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/login';
+            let url = 'http://potogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php';
             // Method, url, body, headers
             let response = http.request({ method: http.Method.POST, url: url, body: xmlContent, headers: headers });
             // log.debug('response', response.body)
@@ -470,7 +507,11 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                     "precio_unitario_neto":1,
                     "pedido":1,
                     "porcentaje_inicial":1,
-                    "porcentaje_final":1
+                    "porcentaje_final":1,
+                    "unidad":{ 
+                        "nombre":1, 
+                        "identificador_externo":1 
+                    }
                 }
             };
 
@@ -490,8 +531,10 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
 
             let headers = {};
             headers['Content-Type'] = 'text/xml; charset=utf-8';
-            headers['SOAPAction'] = 'http://testpotogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/procesarPeticion';
-            let url = 'http://testpotogas.sgcweb.com.mx//ws/1094AEV2/v2/soap.php';
+            // headers['SOAPAction'] = 'http://testpotogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/procesarPeticion';
+            // let url = 'http://testpotogas.sgcweb.com.mx//ws/1094AEV2/v2/soap.php';
+            headers['SOAPAction'] = 'http://potogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php/procesarPeticion';
+            let url = 'http://potogas.sgcweb.com.mx/ws/1094AEV2/v2/soap.php';
             let response = http.request({ method: http.Method.POST, url: url, body: xmlContent, headers: headers });                    
             // log.debug('response', response.body)
             let xmlFileContent = response.body;
@@ -600,12 +643,15 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
 
                 let time = splitDate[1];
                 let timeSplit = time.split(':');
-
+                // 00:08:33
                 if ( timeSplit.length ) {
                     let hour = Number(timeSplit[0]);
 
                     if ( hour == 12 ) {
                         formatedDate = dateSplit[2]+'/'+dateSplit[1]+'/'+dateSplit[0]+' '+hour+':'+timeSplit[1]+':'+timeSplit[2]+' pm';
+                    } else if ( hour == 00 ) {
+                        hour = 12;
+                        formatedDate = dateSplit[2]+'/'+dateSplit[1]+'/'+dateSplit[0]+' '+hour+':'+timeSplit[1]+':'+timeSplit[2]+' am';
                     }
                     else if ( hour > 12 ) {
                         hour = hour - 12;
@@ -733,6 +779,66 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
             });
 
             return oppArray;
+        }
+
+        // Obtiene los número de viajes activos
+        const getNumeroViajesActivos = (unidadSgc) => {
+            try {
+                let rowArray = [];
+                var customrecord_ptg_tabladeviaje_enc2_SearchObj = search.create({
+                    type: "customrecord_ptg_tabladeviaje_enc2_",
+                    filters:
+                    [
+                        ["custrecord_ptg_viajeactivo_","is","T"], 
+                        "AND", 
+                        ["custrecord_ptg_servicioestacionario_","is","T"], 
+                        "AND", 
+                        ["custrecord_ptg_id_vehiculo_sgc","is",unidadSgc]
+                    ],
+                    columns:
+                    [
+                        search.createColumn({name: "name", label: "Nombre"}),
+                        search.createColumn({name: "id", label: "ID"}),
+                        search.createColumn({name: "custrecord_ptg_vehiculo_tabladeviajes_", label: "PTG - Vehiculo (Tabla de Viajes)"}),
+                        search.createColumn({name: "custrecord_ptg_viaje_tabladeviajes_", label: "PTG - #Viaje (Tabla de viajes)"}),
+                        search.createColumn({name: "custrecord_ptg_planta_tabladeviajes_", label: "PTG - Planta (Tabla de viajes)"}),
+                        search.createColumn({name: "custrecord_ptg_chofer_tabladeviajes_", label: "PTG - Chofer (Tabla de viajes)"}),
+                        search.createColumn({name: "custrecord_ptg_ruta", label: "PTG - Ruta"}),
+                        search.createColumn({name: "custrecord_ptg_id_vehiculo_sgc", label: "PTG - ID VEHICULO SGC"})
+                    ]
+                });
+                var searchResultCount = customrecord_ptg_tabladeviaje_enc2_SearchObj.runPaged().count;
+                // log.debug("customrecord_ptg_tabladeviaje_enc2_SearchObj result count",searchResultCount);
+                customrecord_ptg_tabladeviaje_enc2_SearchObj.run().each(function(result) {
+                    let values = result.getAllValues();
+                    // log.debug('values busqueda viajes activos', values);
+                    let obj = {};
+
+                    obj.idViaje = Number(values.id);
+                    obj.vehiculoSgc = values.custrecord_ptg_id_vehiculo_sgc;
+                    // obj.estadoPedidoId = Number(values.custbody_ptg_estado_pedido[0].value);
+                    // obj.estadoPedido   = values.custbody_ptg_estado_pedido[0].text;
+                    // obj.entityStatusId = Number(values.entitystatus[0].value);
+                    // obj.entityStatus   = values.entitystatus[0].text;
+                    // obj.plantaId       = Number(values.custbody_ptg_planta_relacionada[0].value);
+                    
+                    // log.debug('Values', values);
+                    rowArray.push(obj);
+
+                    // .run().each has a limit of 4,000 results
+                    return true;
+                });
+
+                return rowArray;
+            } catch (error) {
+                log.debug('Error en obtener viajes activos', error);
+            }
+             
+             /*
+             customrecord_ptg_tabladeviaje_enc2_SearchObj.id="customsearch1660786278382";
+             customrecord_ptg_tabladeviaje_enc2_SearchObj.title="PTG - Viajes SGC (copy)";
+             var newSearchId = customrecord_ptg_tabladeviaje_enc2_SearchObj.save();
+             */
         }
 
         return {getInputData, map, reduce, summarize}
