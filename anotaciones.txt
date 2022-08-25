@@ -164,3 +164,74 @@ PTG - Call Center - Agente HEB
 PTG - Call Center - Supervisor
 PTG - Monitor
 PTG - Agente Call Center
+
+// Scripts para PTG - Registros sin conciliar
+https://5298967.app.netsuite.com/app/common/scripting/script.nl?id=1260
+https://5298967.app.netsuite.com/app/common/scripting/script.nl?id=1272&id=1272&whence=
+https://5298967.app.netsuite.com/app/common/scripting/script.nl?id=1024
+
+// Ejemplo de cómo ejecutar una sentencia en la consola (directo desde netsuite)
+require(["N/search", "N/record", "N/format"], function (search, record, format) {
+    let myOpp = record.load({type: 'opportunity', id : 971131});
+    
+    let fechaAtencion = '';
+    let horaFinal     = '';
+    let fechaCierre       = myOpp.getText({fieldId:'expectedclosedate'});
+    let horaCierre        = myOpp.getText({fieldId:'custbody_ptg_hora_cierre'});
+    let today             = new Date();
+
+    if ( horaCierre ) {
+        let horaCierreSplit = horaCierre.split(':');
+        if ( horaCierreSplit.length ) {// Tiene hora de cierre seteada
+            horaFinal   = horaCierreSplit[0];
+            let minutos = horaCierreSplit[1].split(' ');
+            
+            horaFinal  += ':'+minutos[0]+':00';
+            console.log('Tiene hora de cierre seteada');
+        } else {// No tiene hora de cierre seteada
+            horaFinal = today.getHours()+':'+today.getMinutes()+':'+today.getSeconds();
+            console.log('NO tiene hora de cierre seteada');
+        }
+
+    } else {// Se va por asignar una hora manual
+        horaFinal = today.getHours()+':'+today.getMinutes()+':'+today.getSeconds();
+    }
+
+    if ( fechaCierre ) {
+        let dateSplit = fechaCierre.split('/');
+        if ( dateSplit.length ) {
+            let mes = dateSplit[1];
+            if (mes.length == 1) {
+                mes = '0'.concat(mes);
+            }
+            console.log(mes.length);
+            fechaAtencion = dateSplit[2]+'-'+mes+'-'+dateSplit[0]+' '+horaFinal;
+        }
+    } else {
+        fechaAtencion = today.getFullYear()+'-'+today.getMonth()+'-'+today.getDate()+' '+today.getHours()+':'+today.getMinutes()+':'+today.getSeconds();
+    }
+
+    console.log(fechaAtencion);
+
+});
+
+PTG - Registros sin conciliar
+Para guardar un registro de conciliación, se toma en cuenta la siguiente validación:
+Se debe buscar una oportunidad abierta que coincida con los parámetros de PTG - Equipo, Planta, 
+- Campo fecha: Se coloca la fecha más antigua del servicio (1/8/2022)
+- Campo hora: Se coloca la fecha más antigua del servicio ()
+Nota: Se necesita restar 5 horas a la fecha actual
+- Se necesita hacer una búsqueda guardada para identificar el PTG - Equipo (ruta_id) del servicio (custrecord_ptg_autotanquesgc_)
+- Se necesita colocar el precio unitario por litro en el campo (custrecord_ptg_total_ser_sin_conciliar)
+
+- Campo (custrecord_ptg_cliente_sin_conciliar ) se envía público general
+
+
+
+Nota código:
+let fechaInicio = new Date(servicio.ts1);
+let fechaInicioServicio = format.parse({
+    value: fechaInicio,
+    type: format.Type.DATE
+})
+let horaInicioServicio = + fechaInicio.getHours() + ':' + fechaInicio.getMinutes() + ':' + fechaInicio.getSeconds();

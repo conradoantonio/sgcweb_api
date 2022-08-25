@@ -26,19 +26,49 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
          */
 
         const getInputData = (inputContext) => {
-            let index = Number(runtime.getCurrentScript().getParameter({ name: 'custscriptptg_index_sgc_web_mr' }));
-            // log.debug('Index', index);
+            try {
+                let index = Number(runtime.getCurrentScript().getParameter({ name: 'custscriptptg_index_sgc_web_mr' }));
+                // log.debug('Index', index);
+    
+                let folios = getFoliosSgcWeb();
+                log.debug('Folios array', folios);
+                // Se verifica que tenga folios disponibles para hacer una petición a SGC web
+                if ( folios.length && folios[index] ) {
+                    let idToken = login();
+                    let internalFileId = searchXmlFile(search);
+                    let xmlContent = file.load({ id: internalFileId }).getContents();
+                    // let dataToSend = setServiceData(Number(120065) + 1, 1);
+                    let dataToSend = setServiceData(Number(folios[index].folio) + 1, 200);
+                    let typeModule = "Servicios";
+                    let action = "obtenerListaPorFolio";
+                    let responseServ = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
+                    // log.debug('responseServ', responseServ);
+        
+                    /**
+                     * Si se obtiene información de los folios a procesar, caso contrario, significa que no hay folios nuevos y no se itera el map
+                     */
+                    if (["1111", "0000"].includes(responseServ.code[0].textContent) ) {
+                        let servicesValues = JSON.parse(responseServ.info[0].textContent);
 
-            let folios = getFoliosSgcWeb();
-            // log.debug('Folios array', folios);
-            return [ folios[index] ];
-            // let oportunidades = getOpportunities();
-
-            // log.debug('Opp', oportunidades);
-
-            // return oportunidades;
-            // Cargar los pedidos de hoy
-            // return ['a', 'b', 'c'];
+                        servicesValues.forEach(service => {
+                            service.numFolio      = folios[index].folio;
+                            service.folioId       = folios[index].id;
+                            service.subsidiaria   = folios[index].subsidiaria;
+                            service.subsidiariaId = folios[index].subsidiaria;
+                        });
+                        // log.debug('Services values', servicesValues);
+                        log.debug('Services lenght', servicesValues.length);
+                        return servicesValues;
+                    } else {
+                        return [];
+                    }
+    
+                } else {
+                    return [];
+                }
+            } catch (error) {
+                log.debug('Error en get input data', error);
+            }
         }
 
         /**
@@ -60,209 +90,184 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
 
         const map = (mapContext) => {
             try {
-                let currency        = 1;
-                let tipoServicio    = 2;// Estacionario
-                let statusPedido    = 3;// Entregado
-                let entityStatus    = 13;// Concretado
-                let tipoSgc         = 1;// SGC WEB
-                // let customform      = 305;// PTG - Oportunidad
-                let customform      = 265;// Oportunidad-Potogas
-                // let productgasLpId  = 4088;
-                let productgasLpId  = 4216;
-                let publicoGeneral  = 27041;
-                // let publicoGeneral  = 14508;
-                let mapValues = JSON.parse(mapContext.value);
+                let currency         = 1;
+                let tipoServicio     = 2;// Estacionario
+                let statusPedido     = 3;// Entregado
+                let entityStatus     = 13;// Concretado
+                let tipoSgc          = 1;// SGC WEB
+                let customform       = 305;// Oportunidad-Potogas
+                let productgasLpId   = 4088;
+                let publicoGeneral   = 14508;
+                let viajeActivo      = null;
+                let numViajesActivos = [];
+                let element          = JSON.parse(mapContext.value);
+                let unidadSgc        = element.unidad ? element.unidad.identificador_externo : null;
                 
-                // log.debug('Valores map', mapValues);
-                // log.debug('key', mapContext.key);
-                // log.debug('Map context', mapContext);
-                // log.debug('Map context', JSON.parse(mapContext.value));
-
-                let idToken = login();
-                let internalFileId = searchXmlFile(search);
-                let xmlContent = file.load({ id: internalFileId }).getContents();
-                // let dataToSend = setServiceData(Number(120065) + 1, 1);// Para pruebas, colocar el segundo parámetro en 2
-                let dataToSend = setServiceData(Number(mapValues.folio) + 1, 10);// Para pruebas, colocar el segundo parámetro en 2
-                let typeModule = "Servicios";
-                let action = "obtenerListaPorFolio";
-                let responseServ = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
-                // log.debug('responseServ', responseServ);
-                // log.debug('Info', 'Entró a solicitar el folio de un pedido');
-
-                /**
-                 * Si se obtiene información de los folios a procesar, caso contrario, significa que no hay folios nuevos
-                 */
-                if (["1111", "0000"].includes(responseServ.code[0].textContent) ) {
-                    let servicesValues = JSON.parse(responseServ.info[0].textContent);
-                    log.debug(servicesValues);
-                    servicesValues.forEach(element => {
-                        log.debug('Elemento', element);
-                        let viajeActivo = null;
-                        let numViajesActivos = [];
-                        let unidadSgc   = element.unidad ? element.unidad.identificador_externo : null;
-                        
-                        if ( unidadSgc ) {
-                            numViajesActivos = getNumeroViajesActivos(unidadSgc);
-                            if ( numViajesActivos.length > 0 ) {
-                                viajeActivo = numViajesActivos[0].idViaje;
-                            }
-                        }
-                        log.debug('viajeActivo', viajeActivo);
-                        // log.debug('numViajesActivos', numViajesActivos);
-                        // return;
-                        let existOpp = getOppByFolio(element.folio);
-                        let tipoPago = element.tipo_pago == 1 ? 1 : 2;
-                        let tipoServ = ( element.tipo_registro == 'D' ? 1 : ( element.tipo_registro == 'J' ? 2 : element.tipo_registro == 'A' ? 3 : 1 ) );
-                        log.debug('existOpp', existOpp);
-                        // Si no hay ninguna oportunidad con ese folio, se crea una nueva
-                        if (! existOpp.length ) {
-                            log.debug('No hay opp con folio', 'Se crea una');
-                            try {
-                                // return;
-                                let newOpp = record.create({type: record.Type.OPPORTUNITY});
-                                
-                                newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipoServicio});
-                                // newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1085});
-                                
-                                // Campos en clasificación
-                                // newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: bomba});
-                                newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(element.tipo_pago == 1 ? 1 : 2, element.importe_total ?? 0)});
-                    
-                                // newOpp.setValue({fieldId:'customform', value: 124});
-                                newOpp.setValue({fieldId:'customform', value: customform});
-                                newOpp.setValue({fieldId:'entity', value: publicoGeneral});
-                                newOpp.setValue({fieldId:'entitystatus', value: entityStatus});
-                                newOpp.setValue({fieldId:'currency', value: currency});
-                                newOpp.setValue({fieldId:'custbody_ptg_estado_pedido', value: statusPedido});
-                                newOpp.setText({fieldId:'custbody_ptg_folio_aut', text: element.folio});
-                                
-                                // Campos SGC web
-                                newOpp.setText({fieldId:'custbody_ptg_folio_sgc_', text: element.folio});
-                                // newOpp.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: element.fecha_inicio});
-                                newOpp.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: parseDateSgc(element.fecha_inicio)});
-                                newOpp.setText({fieldId:'custbody_fecha_final_sgc_', text: parseDateSgc(element.fecha_fin)});
-                                // newOpp.setText({fieldId:'custbody_fecha_final_sgc_', text: element.fecha_fin});
-                                // newOpp.setValue({fieldId:'custbody_ptg_status_sgc_', value: values.vendedor });
-                                newOpp.setValue({fieldId:'custbody_ptg_tipodeservicio_', value: tipoServ });
-                                newOpp.setText({fieldId:'custbody_ptg_foliounidad_sgc', text: element.folio_unidad});
-                                newOpp.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});
-                                newOpp.setText({fieldId:'custbody_totalizador_final_sgc_', text: element.totalizador_final});
-                                newOpp.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
-                                newOpp.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
-                                
-                                // Sólo se setea el número de viaje si es que existe
-                                if ( viajeActivo ) {
-                                    newOpp.setValue({fieldId:'custbody_ptg_numero_viaje', value: viajeActivo});
-                                }
-                
-                                // Se agrega el producto de Gas LP a nivel artículo
-                                newOpp.setSublistValue({
-                                    sublistId: 'item',
-                                    fieldId: 'item',
-                                    line: 0,
-                                    value: productgasLpId
-                                });
-                                newOpp.setSublistValue({
-                                    sublistId: 'item',
-                                    fieldId: 'quantity',
-                                    line: 0,
-                                    value: element.cantidad ?? 0
-                                });
-                                newOpp.setSublistValue({
-                                    sublistId: 'item',
-                                    fieldId: 'rate',
-                                    line: 0,
-                                    value: element.valor_unitario ?? 0
-                                });
-                    
-                                let oppId = newOpp.save();
-                
-                                log.debug('Info', 'Opotunidad guardada exitósamente: '+oppId);
-                                
-                                updateFolioSgcWeb(mapValues.id, element.folio);
-
-                                // Parche para ejecutar el userevent (Edit) de josé Luis
-                                let myOpp = record.load({id : oppId, type: record.Type.OPPORTUNITY});
-                                myOpp.save();
-                                return;
-                            } catch (error) {
-                                log.debug('Error al crear una nueva opp', error);
-                            }
-                        } 
-                        /**
-                         * Si la búsqueda encuentra una oportunidad 
-                         * y la oportunidad tiene un status diferente de concretado
-                         * y el status del pedido es distinto a entregado, se actualiza la oportunidad
-                         */
-                        // else {// PARCHE PARA ACTUALIZAR TEMPORALMENTE LA OPORTUNIDAD
-                        else if ( existOpp[0].entityStatusId != entityStatus && existOpp[0].estadoPedidoId != statusPedido) { 
-                            log.debug('Hay opp con este folio', 'Se actualiza la opp');
-                            try {
-                                // return;
-                                let oppRecord = record.load({id : existOpp[0].id, type: record.Type.OPPORTUNITY});
-                                // log.debug('Respuesta sgcweb obtener lista por folio', responseServ.info);
-                                // log.debug('Respuesta sgcweb en json', servicesValues);
-                                // log.debug('SGC', 'Servicios consultados exitósamente');
-        
-                                oppRecord.setText({fieldId:'custbody_ptg_folio_sgc_', text: element.folio});
-                                // oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: element.fecha_inicio});
-                                oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: parseDateSgc(element.fecha_inicio)});
-                                oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: parseDateSgc(element.fecha_fin)});
-                                // oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: '27/7/2022 6:53:00 pm'});
-                                // oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: '27/7/2022 6:55:00 pm'});
-                                // oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: element.fecha_fin});
-                                // oppRecord.setValue({fieldId:'custbody_ptg_status_sgc_', value: values.vendedor });
-                                oppRecord.setValue({fieldId:'custbody_ptg_tipodeservicio_', value: tipoServ });
-                                oppRecord.setText({fieldId:'custbody_ptg_foliounidad_sgc', text: element.folio_unidad});
-                                oppRecord.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});
-                                oppRecord.setText({fieldId:'custbody_totalizador_final_sgc_', text: element.totalizador_final});
-                                oppRecord.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
-                                oppRecord.setValue({fieldId:'custbody_ptg_estado_pedido', value: statusPedido});
-                                oppRecord.setValue({fieldId:'entitystatus', value: entityStatus});
-                                oppRecord.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
-
-                                // Sólo se setea el número de viaje si es que existe
-                                if ( viajeActivo ) {
-                                    oppRecord.setValue({fieldId:'custbody_ptg_numero_viaje', value: viajeActivo});
-                                }
-                                
-                                oppRecord.setSublistValue({
-                                    sublistId: 'item',
-                                    fieldId: 'quantity',
-                                    line: 0,
-                                    value: Number(element.cantidad)
-                                });
-        
-                                oppRecord.setSublistValue({
-                                    sublistId: 'item',
-                                    fieldId: 'rate',
-                                    line: 0,
-                                    value: Number(parseFloat(element.valor_unitario).toFixed(2))
-                                });
-                
-                                oppRecord.save();
-                                
-                                log.debug('Info', 'Registro actualizado exitósamente '+oppRecord.id);
-    
-                                // Se actualiza el folio recién guardado
-                                updateFolioSgcWeb(mapValues.id, element.folio);
-
-                                return;
-                                
-                            } catch (error) {
-                                log.debug('Error al actualizar opp', error);
-                            }
-                        } else {
-                            log.debug('Info', 'Existe una oportunidad con este folio, pero ya fue actualizado ');
-                            updateFolioSgcWeb(mapValues.id, element.folio);
-                        }
-                    });// End forEach
-
-                    return;
-                } else {
-                    // log.debug('Ocurrió un error en obtener lista por folio o no hay folios por actualizar', 'rip');
-                    log.debug('Ocurrió un error en obtener lista por folio o no hay folios por actualizar', responseServ.code[0].textContent);
+                if ( unidadSgc ) {
+                    numViajesActivos = getNumeroViajesActivos(unidadSgc);
+                    if ( numViajesActivos.length > 0 ) {
+                        viajeActivo = numViajesActivos[0].idViaje;
+                    }
                 }
+                // log.debug('element', element);
+                // return;
+                // log.debug('viajeActivo', viajeActivo);
+                // log.debug('numViajesActivos', numViajesActivos);
+
+                let existOpp = getOppByFolio(element.folio);
+                let tipoPago = element.tipo_pago == 1 ? 1 : 2;
+                let tipoServ = ( element.tipo_registro == 'D' ? 1 : ( element.tipo_registro == 'J' ? 2 : element.tipo_registro == 'A' ? 3 : 1 ) );
+                log.debug('existOpp', existOpp);
+                // Si no hay ninguna oportunidad con ese folio, se crea una nueva
+                if (! existOpp.length ) {
+                    log.debug('No hay opp con folio', 'Se crea una');
+                    try {
+                        // let testOpp = record.load({type: 'opportunity', id : 971131});
+                        // newOpp.setText({fieldId:'custbody_ptg_folio_sgc_', text: 1});
+                        
+                        // testOpp.save();
+                        // log.debug('Info', 'Opotunidad guardada exitósamente: '+971131);
+                        
+                        // updateFolioSgcWeb(element.folioId, element.folio);
+                        // return;
+                        let newOpp = record.create({type: record.Type.OPPORTUNITY});
+                        
+                        newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipoServicio});
+                        // newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1085});
+                        
+                        // Campos en clasificación
+                        // newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: bomba});
+                        newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(element.tipo_pago == 1 ? 1 : 2, element.importe_total ?? 0)});
+            
+                        // newOpp.setValue({fieldId:'customform', value: 124});
+                        newOpp.setValue({fieldId:'customform', value: customform});
+                        newOpp.setValue({fieldId:'entity', value: publicoGeneral});
+                        newOpp.setValue({fieldId:'entitystatus', value: entityStatus});
+                        newOpp.setValue({fieldId:'currency', value: currency});
+                        newOpp.setValue({fieldId:'custbody_ptg_estado_pedido', value: statusPedido});
+                        newOpp.setText({fieldId:'custbody_ptg_folio_aut', text: element.folio});
+                        
+                        // Campos SGC web
+                        newOpp.setText({fieldId:'custbody_ptg_folio_sgc_', text: element.folio});
+                        // newOpp.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: element.fecha_inicio});
+                        newOpp.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: parseDateSgc(element.fecha_inicio)});
+                        newOpp.setText({fieldId:'custbody_fecha_final_sgc_', text: parseDateSgc(element.fecha_fin)});
+                        // newOpp.setText({fieldId:'custbody_fecha_final_sgc_', text: element.fecha_fin});
+                        // newOpp.setValue({fieldId:'custbody_ptg_status_sgc_', value: values.vendedor });
+                        newOpp.setValue({fieldId:'custbody_ptg_tipodeservicio_', value: tipoServ });
+                        newOpp.setText({fieldId:'custbody_ptg_foliounidad_sgc', text: element.folio_unidad});
+                        newOpp.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});
+                        newOpp.setText({fieldId:'custbody_totalizador_final_sgc_', text: element.totalizador_final});
+                        newOpp.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
+                        // newOpp.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
+                        
+                        // Sólo se setea el número de viaje si es que existe
+                        if ( viajeActivo ) {
+                            newOpp.setValue({fieldId:'custbody_ptg_numero_viaje', value: viajeActivo});
+                        }
+        
+                        // Se agrega el producto de Gas LP a nivel artículo
+                        newOpp.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'item',
+                            line: 0,
+                            value: productgasLpId
+                        });
+                        newOpp.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'quantity',
+                            line: 0,
+                            value: element.cantidad ?? 0
+                        });
+                        newOpp.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'rate',
+                            line: 0,
+                            value: element.valor_unitario ?? 0
+                        });
+            
+                        let oppId = newOpp.save();
+        
+                        log.debug('Info', 'Opotunidad guardada exitósamente: '+oppId);
+                        
+                        updateFolioSgcWeb(element.folioId, element.numFolio);
+
+                        // Parche para ejecutar el userevent (Edit) de josé Luis
+                        let myOpp = record.load({id : oppId, type: record.Type.OPPORTUNITY});
+                        myOpp.save();
+                        return;
+                    } catch (error) {
+                        log.debug('Error al crear una nueva opp', error);
+                    }
+                } 
+                /**
+                 * Si la búsqueda encuentra una oportunidad 
+                 * y la oportunidad tiene un status diferente de concretado
+                 * y el status del pedido es distinto a entregado, se actualiza la oportunidad
+                 */
+                // else {// PARCHE PARA ACTUALIZAR TEMPORALMENTE LA OPORTUNIDAD
+                else if ( existOpp[0].entityStatusId != entityStatus && existOpp[0].estadoPedidoId != statusPedido) { 
+                    log.debug('Hay opp con este folio', 'Se actualiza la opp');
+                    try {
+                        // return;
+                        let oppRecord = record.load({id : existOpp[0].id, type: record.Type.OPPORTUNITY});
+                        // log.debug('Respuesta sgcweb obtener lista por folio', responseServ.info);
+                        // log.debug('Respuesta sgcweb en json', servicesValues);
+                        // log.debug('SGC', 'Servicios consultados exitósamente');
+
+                        oppRecord.setText({fieldId:'custbody_ptg_folio_sgc_', text: element.folio});
+                        // oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: element.fecha_inicio});
+                        oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: parseDateSgc(element.fecha_inicio)});
+                        oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: parseDateSgc(element.fecha_fin)});
+                        // oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: '27/7/2022 6:53:00 pm'});
+                        // oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: '27/7/2022 6:55:00 pm'});
+                        // oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: element.fecha_fin});
+                        // oppRecord.setValue({fieldId:'custbody_ptg_status_sgc_', value: values.vendedor });
+                        oppRecord.setValue({fieldId:'custbody_ptg_tipodeservicio_', value: tipoServ });
+                        oppRecord.setText({fieldId:'custbody_ptg_foliounidad_sgc', text: element.folio_unidad});
+                        oppRecord.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});
+                        oppRecord.setText({fieldId:'custbody_totalizador_final_sgc_', text: element.totalizador_final});
+                        oppRecord.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
+                        oppRecord.setValue({fieldId:'custbody_ptg_estado_pedido', value: statusPedido});
+                        oppRecord.setValue({fieldId:'entitystatus', value: entityStatus});
+                        // oppRecord.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
+
+                        // Sólo se setea el número de viaje si es que existe
+                        if ( viajeActivo ) {
+                            oppRecord.setValue({fieldId:'custbody_ptg_numero_viaje', value: viajeActivo});
+                        }
+                        
+                        oppRecord.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'quantity',
+                            line: 0,
+                            value: Number(element.cantidad)
+                        });
+
+                        oppRecord.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'rate',
+                            line: 0,
+                            value: Number(parseFloat(element.valor_unitario).toFixed(2))
+                        });
+        
+                        oppRecord.save();
+                        
+                        log.debug('Info', 'Registro actualizado exitósamente '+oppRecord.id);
+
+                        // Se actualiza el folio recién guardado
+                        updateFolioSgcWeb(element.folioId, element.folio);
+
+                        return;
+                        
+                    } catch (error) {
+                        log.debug('Error al actualizar opp', error);
+                    }
+                } else {
+                    log.debug('Info', 'Existe una oportunidad con este folio, pero ya fue actualizado ');
+                    updateFolioSgcWeb(element.folioId, element.folio);
+                }
+                return;
             } catch (error) {
                 log.debug('Error', error);
             }
@@ -515,7 +520,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 }
             };
 
-            log.debug('info obtener servicios', data);
+            // log.debug('info obtener servicios', data);
 
             return data;
         }
@@ -675,7 +680,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
             
             let folioId = contadorFolio.save();
             
-            log.debug('Folio ID', folioId);
+            log.debug('Folio sgc web ID', folioId);
 
             return folioId;
         }

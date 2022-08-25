@@ -3,9 +3,12 @@
    <soapenv:Body>
       <sgc:login soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
          <user_auth xsi:type="sgc:user_auth">
-            <!--You may enter the following 2 items in any order-->
+            <!-- Produccion -->
             <user_name xsi:type="xsd:string">apiuser</user_name>
-            <password xsi:type="xsd:string">a5b5e30dc3dcd0f3f5444baaf38448b1</password>
+            <password xsi:type="xsd:string">b53de80ae066f5ccd74892c2417a0f6d</password>
+            <!-- Sandbox -->
+            <!-- <user_name xsi:type="xsd:string">apiuser</user_name>
+            <password xsi:type="xsd:string">a5b5e30dc3dcd0f3f5444baaf38448b1</password> -->
          </user_auth>
          <application_name xsi:type="xsd:string">?</application_name>
          <name_value_list xsi:type="sgc:name_value_list" SOAP-ENC:arrayType="sgc:name_value[]"/>
