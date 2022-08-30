@@ -226,7 +226,7 @@ Nota: Se necesita restar 5 horas a la fecha actual
 
 - Campo (custrecord_ptg_cliente_sin_conciliar ) se envía público general
 
-
+El registro de PTG - Equipo, debe tener el ID del equipo de SGC, para esto, debe obtenerse este dato del campo: custrecord_ptg_autotanquesgc_
 
 Nota código:
 let fechaInicio = new Date(servicio.ts1);
@@ -235,3 +235,9 @@ let fechaInicioServicio = format.parse({
     type: format.Type.DATE
 })
 let horaInicioServicio = + fechaInicio.getHours() + ':' + fechaInicio.getMinutes() + ':' + fechaInicio.getSeconds();
+
+1.- Al momento de descargar los servicios, trata de buscar oportunidades a través del folio, 
+si coincide, actualiza esa oportunidad, caso contrario, crea un registro de no conciliados
+2.- Al momento de ejecutar el botón de enviar del suitelet, se deben validar estos escenarios:
+- Si encuentra que los datos del registro de conciliación (planta, equipo, cliente) coinciden con una oportunidad no cerrada, se crea actualizan los datos de siempre
+- Caso contrario, se crea una nueva oportunidad y se le asigna el viaje activo del equipo asignado

@@ -36,25 +36,35 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                 let index = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
                 let folios = getFolios();
                 log.debug('Index', index);
-                // log.debug('Folios', folios);
-                return [ folios[index] ];
-                let idToken = login();
-                let internalFileId = searchXmlFile();
-                let dataToSend = setData(lastFolio);
+                // log.debug('Folio', folios[index]);
+                let headers  = [];
+                let postData = {
+                    "ip": folios[index].ip,
+                    "folio": Number(folios[index].contador)+1,
+                };
+                postData = JSON.stringify(postData);
+                headers['Content-Type'] = 'application/json';
 
-                // Se busca la información de la dirección por defecto
-                let xmlContent = file.load({ id: internalFileId }).getContents();
-                let typeModule = "Servicios";
-                let action = "obtenerListaPorFolio";
-
-                let responseInfo = getServices(xmlContent, idToken, typeModule, action, dataToSend);
+                let url = 'https://i-ptg-sgclc-middleware-api-dtt-middleware.apps.mw-cluster.kt77.p1.openshiftapps.com/api/carburacion/procesarPeticion';
+                // let url = 'https://ba2a-177-226-112-81.ngrok.io/api/carburacion/procesarPeticion';
                 
-                // Esta lógica cambiaría, ya que se responseInfo traerá la respuesta de SGC y no directamente el arreglo de servicios
-                arrayServices = responseInfo;
-                numServices = responseInfo.length;
-                // log.debug('response info', responseInfo);
-                log.debug('num services', numServices);
+                let response = https.post({
+                    url: url,
+                    headers: headers,
+                    body: postData
+                });
 
+                let responseJson = JSON.parse(response.body);
+                let services     = responseJson.servicios;
+                
+                services.forEach(service => {
+                    service.numFolio      = folios[index].contador;
+                    service.folioId       = folios[index].id;
+                    service.plantaId      = folios[index].plantaId;
+                });
+                // log.debug('services', services[0]);
+
+                return services;
             } catch (error) {
                 log.debug('Algo salió mal en el método get input data', error);
             }
@@ -85,135 +95,103 @@ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xm
                 let currency        = 1;
                 let tipo_servicio   = 3;// Carburación
                 let entity_status   = 13;
-                // let customform      = 307;
-                let customform      = 264;
-                // let productgasLpId  = 4088;
-                let productgasLpId = 4216;
-                // let publico_general = 14508;
-                let publico_general = 27041;
-                let mapValues = JSON.parse(mapContext.value);
+                let customform      = 307;
+                // let customform      = 264;
+                let productgasLpId  = 4088;
+                // let productgasLpId = 4216;
+                let publico_general = 14508;
+                // let publico_general = 27041;
+                let item = JSON.parse(mapContext.value);
                 
-                log.debug('Valores map', mapValues);
-                log.debug('key', mapContext.key);
-
-                let headers  = [];
-                let postData = {
-                    "ip": mapValues.ip,
-                    "folio": Number(mapValues.contador)+1,
-                    // "prueba": "true"
-                };
-                postData = JSON.stringify(postData);
-                headers['Content-Type'] = 'application/json';
-
-                // let url = 'https://i-ptg-sgclc-middleware-api-dtt-middleware.apps.mw-cluster.kt77.p1.openshiftapps.com/api/carburacion/procesarPeticion';
-                let url = 'https://ba2a-177-226-112-81.ngrok.io/api/carburacion/procesarPeticion';
+                // log.debug('Valores map', item);
+                // log.debug('key', mapContext.key);
+                // return;
+              
+                let producto = item.producto.trim() == 'GLP' ? 'GLP' : null;
+                let bomba    = item.dispensador == 1 ? 1 : 2;
+                // Si no es producto de gas lp, no se registra el servicio
+                if (! producto ) { return; }
                 
-                let response = https.post({
-                    url: url,
-                    headers: headers,
-                    body: postData
+                let newOpp = record.create({
+                    type: record.Type.OPPORTUNITY,
                 });
+                
+                newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipo_servicio});
+                // newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1085});
+                
+                // Campos en clasificación
+                newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: bomba});
+                newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(item.tipo_pago == 'Contado' ? 1 : 2, item.importe_total ?? 0)});
+    
+                // newOpp.setValue({fieldId:'customform', value: 124});
+                newOpp.setValue({fieldId:'customform', value: customform});
+                newOpp.setValue({fieldId:'entity', value: publico_general});
+                newOpp.setValue({fieldId:'entitystatus', value: entity_status});
+                newOpp.setValue({fieldId:'currency', value: currency});
 
-                let responseJson = JSON.parse(response.body);
-                let services     = responseJson.servicios;
-                // log.debug('services', services);
-
-                /**
-                 * Se consultan los servicios por planta y se iteran mediante un for, guardando una opotunidad por cada registro
-                 */
-                // for ( let a = 0; a < 1; a++ ) {
-                for ( let a = 0; a < services.length; a++ ) {
-                    let item     = services[a];
-                    let producto = item.producto.trim() == 'GLP' ? 'GLP' : null;
-                    let bomba    = item.dispensador == 1 ? 1 : 2;
-                    // Si no es producto de gas lp, no se registra el servicio
-                    if (! producto ) { return; }
-                    
-                    let newOpp = record.create({
-                        type: record.Type.OPPORTUNITY,
-                    });
-                    
-                    newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipo_servicio});
-                    // newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1085});
-                    
-                    // Campos en clasificación
-                    newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: bomba});
-                    newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(item.tipo_pago == 'Contado' ? 1 : 2, item.importe_total ?? 0)});
-        
-                    // newOpp.setValue({fieldId:'customform', value: 124});
-                    newOpp.setValue({fieldId:'customform', value: customform});
-                    newOpp.setValue({fieldId:'entity', value: publico_general});
-                    newOpp.setValue({fieldId:'entitystatus', value: entity_status});
-                    newOpp.setValue({fieldId:'currency', value: currency});
-    
-                    // Estación de carburación
-                    if ( mapValues.plantaId ) {
-                        newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: Number( mapValues.plantaId )});
-                    }
-    
-                    // Campos sgc carburación
-                    newOpp.setText({fieldId:'custbody_ptg_vendedor_', text: item.vendedor });
-                    newOpp.setValue({fieldId:'custbody_ptg_tota_inicial_', value: parseFloat(item.totalizador_inicial ?? 0).toFixed(4)});
-                    newOpp.setValue({fieldId:'custbody_ptg_totalizador_final_', value: parseFloat(item.totalizador_final ?? 0).toFixed(4) });
-                    newOpp.setValue({fieldId:'custbody_ptg_tipopago_carburacion_', value: item.tipo_pago == 'Contado' ? 1 : 2});
-                    newOpp.setValue({fieldId:'custbody_ptg_estacion_', value: 2});
-                    newOpp.setValue({fieldId:'custbody_ptg_idcliente_', value: publico_general});// Id cliente
-                    // newOpp.setValue({fieldId:'custbody_ptg_idconsumidor_', value: item.consumidor ? item.cliente.identificador_externo : 14508});
-                    newOpp.setValue({fieldId:'custbody_ptg_folio_carburacion_', value: item.folio});
-                    
-                    newOpp.setText({fieldId:'custbody_ptg_dispensador_', text: item.dispensador });
-                    newOpp.setValue({fieldId:'custbody_ptg_equipo_', value: 645});
-                    // newOpp.setValue({fieldId:'custbody_ptg_id_equipo', value: 645});
-                    newOpp.setText({fieldId:'custbody_ptg_servicio_id', text: item.servicio_id });
-                    newOpp.setText({fieldId:'custbody_ptg_folio_ticket', text: item.folio_ticket });
-                    newOpp.setText({fieldId:'custbodyptg_inicio_servicio', text: item.inicio_servicio });
-                    newOpp.setText({fieldId:'custbodyptg_fin_servicio', text: item.fin_servicio });
-                    
-                    newOpp.setText({fieldId:'custbody_ptg_merma', text: item.merma });
-                    newOpp.setText({fieldId:'custbody_ptg_vale_electronico', text: item.vale_electronico });
-                    newOpp.setText({fieldId:'custbody_ptg_odometro', text: item.odometro });
-                    newOpp.setText({fieldId:'custbody_ptg_tipo_registro', text: item.tipo_registro });
-                    newOpp.setText({fieldId:'custbody_ptg_numero_impresiones', text: item.numero_impresiones });
-                    newOpp.setText({fieldId:'custbody_ptg_turno', text: item.turno });
-                    newOpp.setText({fieldId:'custbody_ptg_autoconsumo', text: item.autoconsumo });
-                    
-                    // Se agrega el producto de Gas LP a nivel artículo
-                    newOpp.setSublistValue({
-                        sublistId: 'item',
-                        fieldId: 'item',
-                        line: 0,
-                        value: productgasLpId
-                    });
-                    newOpp.setSublistValue({
-                        sublistId: 'item',
-                        fieldId: 'quantity',
-                        line: 0,
-                        value: item.cantidad ?? 0
-                    });
-                    newOpp.setSublistValue({
-                        sublistId: 'item',
-                        fieldId: 'rate',
-                        line: 0,
-                        value: item.valor_unitario ?? 0
-                    });
-        
-                    let oppId = newOpp.save();
-    
-                    log.debug('Info', 'Opotunidad guardada exitósamente: '+oppId);
-    
-                    
-                    // Se actualiza el folio recién guardado
-                    let contadorFolio = record.load({isDynamic : true, type: 'customrecord_ptg_folio_counter', id : mapValues.id});
-                    
-                    contadorFolio.setValue({fieldId: 'custrecord_ptg_folio_counter', value: item.folio});
-                    
-                    let folioId = contadorFolio.save();
-                    
-                    log.debug('Folio ID', folioId);
-    
-                    // mapContext.write({key: 1, value: item.folio});
-                    
+                // Estación de carburación
+                if ( item.plantaId ) {
+                    newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: Number( item.plantaId )});
                 }
+
+                // Campos sgc carburación
+                newOpp.setText({fieldId:'custbody_ptg_vendedor_', text: item.vendedor });
+                newOpp.setValue({fieldId:'custbody_ptg_tota_inicial_', value: parseFloat(item.totalizador_inicial ?? 0).toFixed(4)});
+                newOpp.setValue({fieldId:'custbody_ptg_totalizador_final_', value: parseFloat(item.totalizador_final ?? 0).toFixed(4) });
+                newOpp.setValue({fieldId:'custbody_ptg_tipopago_carburacion_', value: item.tipo_pago == 'Contado' ? 1 : 2});
+                newOpp.setValue({fieldId:'custbody_ptg_estacion_', value: 2});
+                newOpp.setValue({fieldId:'custbody_ptg_idcliente_', value: publico_general});// Id cliente
+                // newOpp.setValue({fieldId:'custbody_ptg_idconsumidor_', value: item.consumidor ? item.cliente.identificador_externo : 14508});
+                newOpp.setValue({fieldId:'custbody_ptg_folio_carburacion_', value: item.folio});
+                
+                newOpp.setText({fieldId:'custbody_ptg_dispensador_', text: item.dispensador });
+                newOpp.setValue({fieldId:'custbody_ptg_equipo_', value: 645});
+                // newOpp.setValue({fieldId:'custbody_ptg_id_equipo', value: 645});
+                newOpp.setText({fieldId:'custbody_ptg_servicio_id', text: item.servicio_id });
+                newOpp.setText({fieldId:'custbody_ptg_folio_ticket', text: item.folio_ticket });
+                newOpp.setText({fieldId:'custbodyptg_inicio_servicio', text: item.inicio_servicio });
+                newOpp.setText({fieldId:'custbodyptg_fin_servicio', text: item.fin_servicio });
+                
+                newOpp.setText({fieldId:'custbody_ptg_merma', text: item.merma });
+                newOpp.setText({fieldId:'custbody_ptg_vale_electronico', text: item.vale_electronico });
+                newOpp.setText({fieldId:'custbody_ptg_odometro', text: item.odometro });
+                newOpp.setText({fieldId:'custbody_ptg_tipo_registro', text: item.tipo_registro });
+                newOpp.setText({fieldId:'custbody_ptg_numero_impresiones', text: item.numero_impresiones });
+                newOpp.setText({fieldId:'custbody_ptg_turno', text: item.turno });
+                newOpp.setText({fieldId:'custbody_ptg_autoconsumo', text: item.autoconsumo });
+                
+                // Se agrega el producto de Gas LP a nivel artículo
+                newOpp.setSublistValue({
+                    sublistId: 'item',
+                    fieldId: 'item',
+                    line: 0,
+                    value: productgasLpId
+                });
+                newOpp.setSublistValue({
+                    sublistId: 'item',
+                    fieldId: 'quantity',
+                    line: 0,
+                    value: item.cantidad ?? 0
+                });
+                newOpp.setSublistValue({
+                    sublistId: 'item',
+                    fieldId: 'rate',
+                    line: 0,
+                    value: item.valor_unitario ?? 0
+                });
+    
+                let oppId = newOpp.save();
+
+                log.debug('Info', 'Opotunidad guardada exitósamente: '+oppId);
+                
+                // Se actualiza el folio recién guardado
+                let contadorFolio = record.load({isDynamic : true, type: 'customrecord_ptg_folio_counter', id : item.folioId});
+                
+                contadorFolio.setValue({fieldId: 'custrecord_ptg_folio_counter', value: item.folio});
+                
+                let folioId = contadorFolio.save();
+                
+                log.debug('Folio ID', folioId);
             } catch (error) {
                 log.debug('Algo salió mal', error);
             }

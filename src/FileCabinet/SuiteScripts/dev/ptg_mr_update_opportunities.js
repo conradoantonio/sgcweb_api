@@ -2,7 +2,7 @@
  * @NApiVersion 2.1
  * @NScriptType MapReduceScript
  */
-define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runtime', 'N/task'],
+define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runtime', 'N/task', 'SuiteScripts/dev/moment'],
     /**
  * @param{file} file
  * @param{http} http
@@ -11,7 +11,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
  * @param{search} search
  * @param{xml} xml
  */
-    (file, http, https, record, search, xml, runtime, task) => {
+    (file, http, https, record, search, xml, runtime, task, moment) => {
         /**
          * Defines the function that is executed at the beginning of the map/reduce process and generates the input data.
          * @param {Object} inputContext
@@ -37,12 +37,10 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                     let idToken = login();
                     let internalFileId = searchXmlFile(search);
                     let xmlContent = file.load({ id: internalFileId }).getContents();
-                    // let dataToSend = setServiceData(Number(120065) + 1, 1);
-                    let dataToSend = setServiceData(Number(folios[index].folio) + 1, 200);
+                    let dataToSend = setServiceData(Number(folios[index].folio) + 1, 1);
                     let typeModule = "Servicios";
                     let action = "obtenerListaPorFolio";
                     let responseServ = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
-                    // log.debug('responseServ', responseServ);
         
                     /**
                      * Si se obtiene información de los folios a procesar, caso contrario, significa que no hay folios nuevos y no se itera el map
@@ -57,9 +55,10 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                             service.subsidiariaId = folios[index].subsidiaria;
                         });
                         // log.debug('Services values', servicesValues);
-                        log.debug('Services lenght', servicesValues.length);
+                        // log.debug('Services lenght', servicesValues.length);
                         return servicesValues;
                     } else {
+                        log.debug('Info', 'No hay servicios por validar');
                         return [];
                     }
     
@@ -68,6 +67,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 }
             } catch (error) {
                 log.debug('Error en get input data', error);
+                return [];
             }
         }
 
@@ -102,103 +102,137 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 let numViajesActivos = [];
                 let element          = JSON.parse(mapContext.value);
                 let unidadSgc        = element.unidad ? element.unidad.identificador_externo : null;
-                
+                let equipo           = null;
                 if ( unidadSgc ) {
                     numViajesActivos = getNumeroViajesActivos(unidadSgc);
+                    equipo           = getEquipoSgc(unidadSgc);
                     if ( numViajesActivos.length > 0 ) {
                         viajeActivo = numViajesActivos[0].idViaje;
                     }
                 }
-                // log.debug('element', element);
-                // return;
-                // log.debug('viajeActivo', viajeActivo);
-                // log.debug('numViajesActivos', numViajesActivos);
+                log.debug('equipo', equipo);
 
-                let existOpp = getOppByFolio(element.folio);
+                let oppByFolio = searchOpp(element, 'folio');
                 let tipoPago = element.tipo_pago == 1 ? 1 : 2;
                 let tipoServ = ( element.tipo_registro == 'D' ? 1 : ( element.tipo_registro == 'J' ? 2 : element.tipo_registro == 'A' ? 3 : 1 ) );
-                log.debug('existOpp', existOpp);
-                // Si no hay ninguna oportunidad con ese folio, se crea una nueva
-                if (! existOpp.length ) {
-                    log.debug('No hay opp con folio', 'Se crea una');
+                log.debug('oppByFolio', oppByFolio);
+                // Si no hay ninguna oportunidad con ese folio, se crea un registro de conciliación
+                if (! oppByFolio.length ) {
+                    // let oppByCriteria = searchOpp(element, 'criteria');
+                    // log.debug('No hay opp con folio', 'Se debe buscar una oportunidad que coincida con la subsidiaria, ruta y cliente');
+                    // log.debug('oppByCriteria', oppByCriteria);
                     try {
-                        // let testOpp = record.load({type: 'opportunity', id : 971131});
-                        // newOpp.setText({fieldId:'custbody_ptg_folio_sgc_', text: 1});
+                        let noConciliado = record.create({type: "customrecord_ptg_registros_sin_conciliar"});
                         
-                        // testOpp.save();
-                        // log.debug('Info', 'Opotunidad guardada exitósamente: '+971131);
-                        
-                        // updateFolioSgcWeb(element.folioId, element.folio);
-                        // return;
-                        let newOpp = record.create({type: record.Type.OPPORTUNITY});
-                        
-                        newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipoServicio});
-                        // newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1085});
-                        
-                        // Campos en clasificación
-                        // newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: bomba});
-                        newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(element.tipo_pago == 1 ? 1 : 2, element.importe_total ?? 0)});
-            
-                        // newOpp.setValue({fieldId:'customform', value: 124});
-                        newOpp.setValue({fieldId:'customform', value: customform});
-                        newOpp.setValue({fieldId:'entity', value: publicoGeneral});
-                        newOpp.setValue({fieldId:'entitystatus', value: entityStatus});
-                        newOpp.setValue({fieldId:'currency', value: currency});
-                        newOpp.setValue({fieldId:'custbody_ptg_estado_pedido', value: statusPedido});
-                        newOpp.setText({fieldId:'custbody_ptg_folio_aut', text: element.folio});
-                        
-                        // Campos SGC web
-                        newOpp.setText({fieldId:'custbody_ptg_folio_sgc_', text: element.folio});
-                        // newOpp.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: element.fecha_inicio});
-                        newOpp.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: parseDateSgc(element.fecha_inicio)});
-                        newOpp.setText({fieldId:'custbody_fecha_final_sgc_', text: parseDateSgc(element.fecha_fin)});
-                        // newOpp.setText({fieldId:'custbody_fecha_final_sgc_', text: element.fecha_fin});
-                        // newOpp.setValue({fieldId:'custbody_ptg_status_sgc_', value: values.vendedor });
-                        newOpp.setValue({fieldId:'custbody_ptg_tipodeservicio_', value: tipoServ });
-                        newOpp.setText({fieldId:'custbody_ptg_foliounidad_sgc', text: element.folio_unidad});
-                        newOpp.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});
-                        newOpp.setText({fieldId:'custbody_totalizador_final_sgc_', text: element.totalizador_final});
-                        newOpp.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
-                        // newOpp.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
-                        
-                        // Sólo se setea el número de viaje si es que existe
-                        if ( viajeActivo ) {
-                            newOpp.setValue({fieldId:'custbody_ptg_numero_viaje', value: viajeActivo});
+                        // Si encuentra el registro en netsuite de la unidad de SGC, se setean los datos ruta y planta
+                        if ( equipo.length ) {
+                            noConciliado.setValue({fieldId:'custrecord_ptg_ruta_sin_conciliar', value: equipo[0].id});// PTG - Equipo ID
+                            noConciliado.setValue({fieldId:'custrecord_ptg_planta_sin_conciliar', value: equipo[0].plantaId});// Planta ID
                         }
-        
-                        // Se agrega el producto de Gas LP a nivel artículo
-                        newOpp.setSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'item',
-                            line: 0,
-                            value: productgasLpId
-                        });
-                        newOpp.setSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'quantity',
-                            line: 0,
-                            value: element.cantidad ?? 0
-                        });
-                        newOpp.setSublistValue({
-                            sublistId: 'item',
-                            fieldId: 'rate',
-                            line: 0,
-                            value: element.valor_unitario ?? 0
-                        });
-            
-                        let oppId = newOpp.save();
-        
-                        log.debug('Info', 'Opotunidad guardada exitósamente: '+oppId);
-                        
-                        updateFolioSgcWeb(element.folioId, element.numFolio);
-
-                        // Parche para ejecutar el userevent (Edit) de josé Luis
-                        let myOpp = record.load({id : oppId, type: record.Type.OPPORTUNITY});
-                        myOpp.save();
+                        noConciliado.setText({fieldId:'custrecord_ptg_litros_sin_conciliar', text: element.cantidad});// Cantidad de litros surtidos
+                        noConciliado.setText({fieldId:'custrecord_ptg_total_ser_sin_conciliar', text: element.precio_unitario_neto});// Precio Unitario con IVA
+                        noConciliado.setText({fieldId:'custrecord_ptg_folio_reg_sin_conciliar', text: element.folio});// Folio
+                        noConciliado.setText({fieldId:'custrecord_ptg_sgcloc_fecha', text: setCustomDate(element.fecha_inicio, 'D/M/YYYY') });// Fecha de inicio del servicio 
+                        noConciliado.setText({fieldId:'custrecord_ptg_sgcloc_hora', text: setCustomDate(element.fecha_inicio, 'h:mm:ss') });// Hora de inicio del servicio 
+                        noConciliado.setText({fieldId:'custrecord_ptg_fechainicio_sgc', text: setCustomDate(element.fecha_inicio, 'D/M/YYYY h:mm:ss a') });// Hora de inicio del servicio 
+                        noConciliado.setText({fieldId:'custrecord_fecha_final_sgc_', text: setCustomDate(element.fecha_fin, 'D/M/YYYY h:mm:ss a') });// Hora de inicio del servicio 
+                        noConciliado.setValue({fieldId:'custrecord_ptg_tipodeservicio_', value: tipoServ });// Tipo de servicio (Venta, Jarreo, AutoJarreo)
+                        noConciliado.setText({fieldId:'custrecord_ptg_foliounidad_sgc', text: element.folio_unidad});// Folio unidad
+                        noConciliado.setText({fieldId:'custrecord_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});// Totalizador inicial
+                        noConciliado.setText({fieldId:'custrecord_totalizador_final_sgc_', text: element.totalizador_final});// Totalizador final
+                        noConciliado.setValue({fieldId:'custrecord_ptg_tipo_de_pago_sgc_', value: tipoPago });// Tipo de pago (Contado, crédito)
+                        noConciliado.setValue({fieldId:'custrecord_ptg_tipo_sgc', value: 1 });// Tipo de SGC, se setea el web 
+    
+                        let noConciliadoId = noConciliado.save();
+                        log.debug('Registro de no conciliado guardado exitósamente', noConciliadoId);
                         return;
+                        // Considerar colocar aquí el updateFolioSGC
                     } catch (error) {
-                        log.debug('Error al crear una nueva opp', error);
+                        log.debug('Error al guardar registro de no conciliado', error);
                     }
+                    // custrecord_ptg_status_sgc_
+                    // custrecord_ptg_dispensador_
+                    // if (! oppByCriteria.length ) {// No hay oportunidades que coincidan con este criterio de búsqueda, se crea una conciliación
+                    // }
+
+                    // try {
+                    //     // let testOpp = record.load({type: 'opportunity', id : 971131});
+                    //     // newOpp.setText({fieldId:'custbody_ptg_folio_sgc_', text: 1});
+                        
+                    //     // testOpp.save();
+                    //     // log.debug('Info', 'Opotunidad guardada exitósamente: '+971131);
+                        
+                    //     // updateFolioSgcWeb(element.folioId, element.folio);
+                    //     // return;
+                    //     let newOpp = record.create({type: record.Type.OPPORTUNITY});
+                        
+                    //     newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipoServicio});
+                    //     // newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1085});
+                        
+                    //     // Campos en clasificación
+                    //     // newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: bomba});
+                    //     newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(element.tipo_pago == 1 ? 1 : 2, element.importe_total ?? 0)});
+            
+                    //     // newOpp.setValue({fieldId:'customform', value: 124});
+                    //     newOpp.setValue({fieldId:'customform', value: customform});
+                    //     newOpp.setValue({fieldId:'entity', value: publicoGeneral});
+                    //     newOpp.setValue({fieldId:'entitystatus', value: entityStatus});
+                    //     newOpp.setValue({fieldId:'currency', value: currency});
+                    //     newOpp.setValue({fieldId:'custbody_ptg_estado_pedido', value: statusPedido});
+                    //     newOpp.setText({fieldId:'custbody_ptg_folio_aut', text: element.folio});
+                        
+                    //     // Campos SGC web
+                    //     newOpp.setText({fieldId:'custbody_ptg_folio_sgc_', text: element.folio});
+                    //     // newOpp.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: element.fecha_inicio});
+                    //     newOpp.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: parseDateSgc(element.fecha_inicio)});
+                    //     newOpp.setText({fieldId:'custbody_fecha_final_sgc_', text: parseDateSgc(element.fecha_fin)});
+                    //     // newOpp.setText({fieldId:'custbody_fecha_final_sgc_', text: element.fecha_fin});
+                    //     // newOpp.setValue({fieldId:'custbody_ptg_status_sgc_', value: values.vendedor });
+                    //     newOpp.setValue({fieldId:'custbody_ptg_tipodeservicio_', value: tipoServ });
+                    //     newOpp.setText({fieldId:'custbody_ptg_foliounidad_sgc', text: element.folio_unidad});
+                    //     newOpp.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});
+                    //     newOpp.setText({fieldId:'custbody_totalizador_final_sgc_', text: element.totalizador_final});
+                    //     newOpp.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
+                    //     // newOpp.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
+                        
+                    //     // Sólo se setea el número de viaje si es que existe
+                    //     if ( viajeActivo ) {
+                    //         newOpp.setValue({fieldId:'custbody_ptg_numero_viaje', value: viajeActivo});
+                    //     }
+        
+                    //     // Se agrega el producto de Gas LP a nivel artículo
+                    //     newOpp.setSublistValue({
+                    //         sublistId: 'item',
+                    //         fieldId: 'item',
+                    //         line: 0,
+                    //         value: productgasLpId
+                    //     });
+                    //     newOpp.setSublistValue({
+                    //         sublistId: 'item',
+                    //         fieldId: 'quantity',
+                    //         line: 0,
+                    //         value: element.cantidad ?? 0
+                    //     });
+                    //     newOpp.setSublistValue({
+                    //         sublistId: 'item',
+                    //         fieldId: 'rate',
+                    //         line: 0,
+                    //         value: element.valor_unitario ?? 0
+                    //     });
+            
+                    //     let oppId = newOpp.save();
+        
+                    //     log.debug('Info', 'Opotunidad guardada exitósamente: '+oppId);
+                        
+                    //     updateFolioSgcWeb(element.folioId, element.numFolio);
+
+                    //     // Parche para ejecutar el userevent (Edit) de josé Luis
+                    //     let myOpp = record.load({id : oppId, type: record.Type.OPPORTUNITY});
+                    //     myOpp.save();
+                    //     return;
+                    // } catch (error) {
+                    //     log.debug('Error al crear una nueva opp', error);
+                    // }
                 } 
                 /**
                  * Si la búsqueda encuentra una oportunidad 
@@ -206,11 +240,11 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                  * y el status del pedido es distinto a entregado, se actualiza la oportunidad
                  */
                 // else {// PARCHE PARA ACTUALIZAR TEMPORALMENTE LA OPORTUNIDAD
-                else if ( existOpp[0].entityStatusId != entityStatus && existOpp[0].estadoPedidoId != statusPedido) { 
+                else if ( oppByFolio[0].entityStatusId != entityStatus && oppByFolio[0].estadoPedidoId != statusPedido) { 
                     log.debug('Hay opp con este folio', 'Se actualiza la opp');
                     try {
                         // return;
-                        let oppRecord = record.load({id : existOpp[0].id, type: record.Type.OPPORTUNITY});
+                        let oppRecord = record.load({id : oppByFolio[0].id, type: record.Type.OPPORTUNITY});
                         // log.debug('Respuesta sgcweb obtener lista por folio', responseServ.info);
                         // log.debug('Respuesta sgcweb en json', servicesValues);
                         // log.debug('SGC', 'Servicios consultados exitósamente');
@@ -219,10 +253,6 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                         // oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: element.fecha_inicio});
                         oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: parseDateSgc(element.fecha_inicio)});
                         oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: parseDateSgc(element.fecha_fin)});
-                        // oppRecord.setText({fieldId:'custbody_ptg_fechainicio_sgc', text: '27/7/2022 6:53:00 pm'});
-                        // oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: '27/7/2022 6:55:00 pm'});
-                        // oppRecord.setText({fieldId:'custbody_fecha_final_sgc_', text: element.fecha_fin});
-                        // oppRecord.setValue({fieldId:'custbody_ptg_status_sgc_', value: values.vendedor });
                         oppRecord.setValue({fieldId:'custbody_ptg_tipodeservicio_', value: tipoServ });
                         oppRecord.setText({fieldId:'custbody_ptg_foliounidad_sgc', text: element.folio_unidad});
                         oppRecord.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: element.totalizador_inicial});
@@ -516,6 +546,14 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                     "unidad":{ 
                         "nombre":1, 
                         "identificador_externo":1 
+                    },
+                    "cliente":{ 
+                        "nombres":1, 
+                        "identificador_externo":1 
+                    },
+                    "consumidor":{ 
+                        "nombres":1, 
+                        "identificador_externo":1 
                     }
                 }
             };
@@ -726,15 +764,30 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
             return foliosArray;
         }
 
-        // Obtiene las oportunidades acorde al folio
-        const getOppByFolio = (folio) => {
+        // Obtiene las oportunidades acorde a un folio o criterios personalizados
+        const searchOpp = (service, type) => {
+            let filters = null;
+            if ( type == 'folio' ) {
+                filters = [
+                    ["custbody_ptg_folio_aut","is",service.folio]
+                ];
+            } else if('criteria') {
+                filters = [
+                    ["custbody_ptg_numero_viaje.custrecord_ptg_id_vehiculo_sgc","startswith","57"], 
+                    "AND", 
+                    ["subsidiary","anyof","25"], 
+                    "AND", 
+                    ["entitystatus","anyof","11"], 
+                    "AND", 
+                    ["custbody_ptg_estado_pedido","anyof","2"], 
+                    "AND", 
+                    ["custbody_ptg_planta_relacionada","anyof","762"]
+                ];
+            }
             let oppArray = [];
             var opportunitySearchObj = search.create({
                 type: "opportunity",
-                filters:
-                [
-                   ["custbody_ptg_folio_aut","is",folio]
-                ],
+                filters: filters,
                 columns:
                 [
                     search.createColumn({name: "title", label: "Título"}),
@@ -844,6 +897,68 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
              customrecord_ptg_tabladeviaje_enc2_SearchObj.title="PTG - Viajes SGC (copy)";
              var newSearchId = customrecord_ptg_tabladeviaje_enc2_SearchObj.save();
              */
+        }
+
+        /**
+         * Se formatea la hora de inicio del servicio. 
+         * Adicional a esto, se necesita restar 5 horas para que quede en la hora local.
+         */
+        const setCustomDate = (dateTime, format) => {
+            try {
+                let myTime = moment(dateTime).subtract(5, 'hours').format(format);
+                // log.debug('myTime', myTime);
+                return myTime;
+            } catch (error) {
+                log.debug('Error al setear la hora', error);                
+            }
+        }
+
+        /**
+         * Busca el registro de PTG - Equipo en netsuite
+         */
+        const getEquipoSgc = (equipo) => {
+            try {
+                let rows = [];
+                var customrecord_ptg_equiposSearchObj = search.create({
+                    type: "customrecord_ptg_equipos",
+                    filters:
+                    [
+                        ["custrecord_ptg_autotanquesgc_","startswith",equipo]
+                    ],
+                    columns:
+                    [
+                        search.createColumn({
+                            name: "name",
+                            sort: search.Sort.ASC,
+                            label: "Nombre"
+                        }),
+                        search.createColumn({name: "scriptid", label: "ID de script"}),
+                        search.createColumn({name: "internalid", label: "ID interno"}),
+                        search.createColumn({name: "custrecord_ptg_ubicacion_", label: "PTG- Planta"}),
+                        search.createColumn({name: "custrecord_ptg_subsidiaria_1", label: "PTG- SUBSIDIARIA"})
+                    ]
+                });
+                var searchResultCount = customrecord_ptg_equiposSearchObj.runPaged().count;
+                // log.debug("customrecord_ptg_equiposSearchObj result count",searchResultCount);
+                customrecord_ptg_equiposSearchObj.run().each(function(result) {
+                    let values = result.getAllValues();
+                    let obj    = {};
+                    // log.debug('values busqueda PTG - equipo', values);
+
+                    obj.id            = Number(values.internalid[0].value);
+                    obj.plantaId      = Number(values.custrecord_ptg_ubicacion_[0].value);
+                    obj.planta        = values.custrecord_ptg_ubicacion_[0].text;
+                    obj.subsidiariaId = Number(values.custrecord_ptg_subsidiaria_1[0].value);
+                    obj.subsidiaria   = values.custrecord_ptg_subsidiaria_1[0].text;
+                    
+                    // log.debug('Values', values);
+                    rows.push(obj);
+                    return true;
+                });
+                return rows;
+            } catch (error) {
+                log.debug('Error al buscar el registro PTG - Equipo', error);                
+            }
         }
 
         return {getInputData, map, reduce, summarize}
