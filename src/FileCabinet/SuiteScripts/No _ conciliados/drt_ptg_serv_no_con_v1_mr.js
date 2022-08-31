@@ -147,7 +147,7 @@
                 newOportunidad.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipo_servicio});
                 
                 // Campos en clasificación
-                newOportunidad.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: arregloPrecio});
+                newOportunidad.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: JSON.stringify(arregloPrecio)});
     
                 // newOportunidad.setValue({fieldId:'customform', value: 124});
                 newOportunidad.setValue({fieldId:'customform', value: customform});
