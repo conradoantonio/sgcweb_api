@@ -67,7 +67,7 @@
             log.debug('totalPorLitro', totalPorLitro );
             log.debug('totalCalculado', totalCalculado );
             // log.debug('Fecha inicio SGC value', sinConciliar.getValue({fieldId:'custrecord_ptg_fechainicio_sgc'}) );
-            var customform = 305;
+            var customform = 265;
             var cliente = data.customer;
             var cantidad = data.litros;
             var total = data.total;
@@ -87,7 +87,7 @@
             var currency = 1;
             var tipo_servicio = 2;
             var entity_status = 13;
-            var gaslp = 4088;
+            var gaslp = 4216;
             var custbody_ptg_tipo_sgc = 2;
             var oportunidadId = null;
             // Busca un registro de viaje activo
@@ -168,7 +168,7 @@
                 newOportunidad.setText({fieldId:'custbody_ptg_totalizador_inicial_sgc', text: totInicial});
                 newOportunidad.setText({fieldId:'custbody_totalizador_final_sgc_', text: totFinal});
                 newOportunidad.setValue({fieldId:'custbody_ptg_tipo_de_pago_sgc_', value: tipoPago});
-                // newOportunidad.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
+                newOportunidad.setValue({fieldId:'custbody_ptg_tipo_sgc', value: tipoSgc});// Se indica que el registro es de SGC web
                 
                 // Sólo se setea el número de viaje si es que existe
                 if ( viajeActivoId ) {
