@@ -95,9 +95,12 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 let statusPedido     = 3;// Entregado
                 let entityStatus     = 13;// Concretado
                 let tipoSgc          = 1;// SGC WEB
-                let customform       = 305;// Oportunidad-Potogas
-                let productgasLpId   = 4088;
-                let publicoGeneral   = 14508;
+                let customform       = 265;// Oportunidad-Potogas
+                let productgasLpId   = 4216;
+                let publicoGeneral   = 27041;
+                // let customform       = 305;// Oportunidad-Potogas
+                // let productgasLpId   = 4088;
+                // let publicoGeneral   = 14508;
                 let viajeActivo      = null;
                 let numViajesActivos = [];
                 let element          = JSON.parse(mapContext.value);
