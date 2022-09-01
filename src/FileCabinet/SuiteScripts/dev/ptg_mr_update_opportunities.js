@@ -115,15 +115,32 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 }
                 log.debug('equipo', equipo);
 
+                let tipoPago = element.tipo_pago == 1 ? 1 : 2;
+                let tipoServ = ( element.tipo_registro == 'D' ? 1 : ( element.tipo_registro == 'J' ? 2 : element.tipo_registro == 'A' ? 3 : 1 ) );
+                let iva      = Number(element.tasa_impuesto);
+                let subtotal = parseFloat( Number(element.cantidad) * Number(element.valor_unitario) ).toFixed(2);
+                let total    = parseFloat( subtotal * ( ( iva / 100 ) + 1) ).toFixed(2);
+                subtotal     = parseFloat(subtotal).toFixed(4);
+                total        = parseFloat(total).toFixed(4);
+                // log.debug('iva', iva);
+                // log.debug('subtotal', subtotal);
+                // log.debug('total', total);
+                // return;
                 let registroLineaEst = record.create({type: "customrecord_ptg_registro_servicios_es_l"});
 
                 if ( equipo.length ) {
                     registroLineaEst.setValue({fieldId:'custrecord_ptg_ruta_sin_conciliar_2', value: equipo[0].id});// PTG - Equipo ID
                     registroLineaEst.setValue({fieldId:'custrecord_ptg_planta_sin_conciliar_2', value: equipo[0].plantaId});// Planta ID
                 }
+                
+                registroLineaEst.setValue({fieldId:'custrecord_ptg_cliente_reg_serv_est_lin', value: publicoGeneral});// Cliente
                 registroLineaEst.setText({fieldId:'custrecord_ptg_cantidad_reg_serv_est_lin', text: element.cantidad});// Cantidad de litros surtidos
                 registroLineaEst.setText({fieldId:'custrecord_ptg_cant_old_reg_serv_est_lin', text: element.cantidad});// Cantidad de litros surtidos
+                registroLineaEst.setText({fieldId:'custrecord_ptg_litros_sin_conciliar_2', text: element.cantidad});// Cantidad de litros surtidos
                 registroLineaEst.setText({fieldId:'custrecord_ptg_precio_reg_serv_est_lin', text: element.valor_unitario});// Precio Unitario sin IVA
+                registroLineaEst.setText({fieldId:'custrecord_ptg_impuesto_reg_serv_est_lin', text: iva});// IVA
+                registroLineaEst.setText({fieldId:'custrecord_ptg_subtotal_registro_servs_e', text: subtotal});// Costo del servicio sin IVA
+                registroLineaEst.setText({fieldId:'custrecord_ptg_total_reg_serv_est_lin', text: total});// Costo total del servicio con IVA
                 registroLineaEst.setText({fieldId:'custrecord_ptg_folio_aut_2_', text: element.folio});// Folio
                 registroLineaEst.setText({fieldId:'custrecord_ptg_folio_reg_sin_c_2', text: element.folio});// Folio
                 registroLineaEst.setText({fieldId:'custrecord_ptg_folio_sgc_2_', text: element.folio});// Folio
@@ -131,7 +148,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 registroLineaEst.setText({fieldId:'custrecord_ptg_sgcloc_hora_2_', text: setCustomDate(element.fecha_inicio, 'h:mm:ss') });// Hora de inicio del servicio 
                 registroLineaEst.setText({fieldId:'custrecord_ptg_fechainicio_sgc_2_', text: setCustomDate(element.fecha_inicio, 'D/M/YYYY h:mm:ss a') });// Hora de inicio del servicio 
                 registroLineaEst.setText({fieldId:'custrecord_fecha_final_sgc_2_', text: setCustomDate(element.fecha_fin, 'D/M/YYYY h:mm:ss a') });// Hora de inicio del servicio 
-                registroLineaEst.setValue({fieldId:'custrecord_ptg_tipodeservicio_2_', value: tipoServicio });// Tipo de servicio (Venta, Jarreo, AutoJarreo)
+                registroLineaEst.setValue({fieldId:'custrecord_ptg_tipodeservicio_2_', value: tipoServ });// Tipo de servicio (Venta, Jarreo, AutoJarreo)
                 registroLineaEst.setText({fieldId:'custrecord_ptg_foliounidad_sgc_2_', text: element.folio_unidad});// Folio unidad
                 registroLineaEst.setText({fieldId:'custrecord_ptg_totalizador_inicia_sgc_2', text: element.totalizador_inicial});// Totalizador inicial
                 registroLineaEst.setText({fieldId:'custrecord_totalizador_final_sgc_2_', text: element.totalizador_final});// Totalizador final
@@ -145,8 +162,8 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
 
                 return;
                 let oppByFolio = searchOpp(element, 'folio');
-                let tipoPago = element.tipo_pago == 1 ? 1 : 2;
-                let tipoServ = ( element.tipo_registro == 'D' ? 1 : ( element.tipo_registro == 'J' ? 2 : element.tipo_registro == 'A' ? 3 : 1 ) );
+                // let tipoPago = element.tipo_pago == 1 ? 1 : 2;
+                // let tipoServ = ( element.tipo_registro == 'D' ? 1 : ( element.tipo_registro == 'J' ? 2 : element.tipo_registro == 'A' ? 3 : 1 ) );
                 log.debug('oppByFolio', oppByFolio);
                 // Si no hay ninguna oportunidad con ese folio, se crea un registro de conciliación
                 if (! oppByFolio.length ) {
