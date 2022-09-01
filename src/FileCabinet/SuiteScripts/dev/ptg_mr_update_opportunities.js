@@ -37,7 +37,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                     let idToken = login();
                     let internalFileId = searchXmlFile(search);
                     let xmlContent = file.load({ id: internalFileId }).getContents();
-                    let dataToSend = setServiceData(Number(folios[index].folio) + 1, 1);
+                    let dataToSend = setServiceData(Number(folios[index].folio) + 1, 200);
                     let typeModule = "Servicios";
                     let action = "obtenerListaPorFolio";
                     let responseServ = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
@@ -130,8 +130,10 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                             noConciliado.setValue({fieldId:'custrecord_ptg_planta_sin_conciliar', value: equipo[0].plantaId});// Planta ID
                         }
                         noConciliado.setText({fieldId:'custrecord_ptg_litros_sin_conciliar', text: element.cantidad});// Cantidad de litros surtidos
-                        noConciliado.setText({fieldId:'custrecord_ptg_total_ser_sin_conciliar', text: element.precio_unitario_neto});// Precio Unitario con IVA
-                        noConciliado.setText({fieldId:'custrecord_ptg_folio_reg_sin_conciliar', text: element.folio});// Folio
+                        noConciliado.setText({fieldId:'custrecord_ptg_total_ser_sin_conciliar', text: element.valor_unitario});// Precio Unitario sin IVA
+                        // noConciliado.setText({fieldId:'custrecord_ptg_folio_reg_sin_conciliar', text: element.folio});// Folio
+                        noConciliado.setText({fieldId:'custrecord_ptg_folio_sgc_', text: element.folio});// Folio
+                        noConciliado.setText({fieldId:'custrecordcustrecord_ptg_folio_reg_sin_c', text: element.folio});// Folio
                         noConciliado.setText({fieldId:'custrecord_ptg_sgcloc_fecha', text: setCustomDate(element.fecha_inicio, 'D/M/YYYY') });// Fecha de inicio del servicio 
                         noConciliado.setText({fieldId:'custrecord_ptg_sgcloc_hora', text: setCustomDate(element.fecha_inicio, 'h:mm:ss') });// Hora de inicio del servicio 
                         noConciliado.setText({fieldId:'custrecord_ptg_fechainicio_sgc', text: setCustomDate(element.fecha_inicio, 'D/M/YYYY h:mm:ss a') });// Hora de inicio del servicio 
@@ -145,8 +147,10 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
     
                         let noConciliadoId = noConciliado.save();
                         log.debug('Registro de no conciliado guardado exitósamente', noConciliadoId);
+
+                        updateFolioSgcWeb(element.folioId, element.folio);
+
                         return;
-                        // Considerar colocar aquí el updateFolioSGC
                     } catch (error) {
                         log.debug('Error al guardar registro de no conciliado', error);
                     }
