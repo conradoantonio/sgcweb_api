@@ -59,8 +59,7 @@
                 service.plantaId      = folios[index].plantaId;
             });
 
-            return [services[0]];
-            // return services;
+            return services;
         } catch (error) {
             log.debug('Algo salió mal en el método get input data', error);
         }
@@ -130,7 +129,7 @@
             newOpp.setValue({fieldId:'custbody_ptg_idcliente_', value: publicoGeneral});// Id cliente
             newOpp.setValue({fieldId:'custbody_ptg_folio_carburacion_', value: item.folio});
             newOpp.setText({fieldId:'custbody_ptg_dispensador_', text: item.dispensador });
-            newOpp.setValue({fieldId:'custbody_ptg_equipo_', value: 645});
+            // newOpp.setValue({fieldId:'custbody_ptg_equipo_', value: 645});
             newOpp.setText({fieldId:'custbody_ptg_servicio_id', text: item.servicio_id });
             newOpp.setText({fieldId:'custbody_ptg_folio_ticket', text: item.folio_ticket });
             newOpp.setText({fieldId:'custbodyptg_inicio_servicio', text: item.inicio_servicio });
