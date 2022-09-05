@@ -29,27 +29,24 @@
       */
 
     const getInputData = (inputContext) => {
-        // let lastFolio = getLastFolio();
-        // log.debug('last folio', lastFolio);
-        let arrayServices = [];
         try {
-            let index = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
-            let folios = getFolios();
-            log.debug('Index', index);
-            // log.debug('Folio', folios[index]);
+            const index  = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
+            const folios = getFolios();
+
             let headers  = [];
             let postData = {
-                "ip": folios[index].ip,
-                "folio": Number(folios[index].contador)+1,
+                "ip"       : folios[index].ip,
+                "user"     : folios[index].apiUser,
+                "folio"    : Number(folios[index].contador)+1,
+                "password" : folios[index].apiPass
             };
+
             postData = JSON.stringify(postData);
             headers['Content-Type'] = 'application/json';
 
-            let url = 'https://i-ptg-sgclc-middleware-api-dtt-middleware.apps.mw-cluster.kt77.p1.openshiftapps.com/api/carburacion/procesarPeticion';
-            // let url = 'https://ba2a-177-226-112-81.ngrok.io/api/carburacion/procesarPeticion';
-            
-            let response = https.post({
-                url: url,
+            const URL = 'https://i-ptg-sgclc-middleware-api-dtt-middleware.apps.mw-cluster.kt77.p1.openshiftapps.com/api/carburacion/procesarPeticion';
+            const response = https.post({
+                url: URL,
                 headers: headers,
                 body: postData
             });
@@ -61,14 +58,12 @@
                 service.folioId       = folios[index].id;
                 service.plantaId      = folios[index].plantaId;
             });
-             // log.debug('services', services[0]);
 
-            return services;
+            return [services[0]];
+            // return services;
         } catch (error) {
             log.debug('Algo salió mal en el método get input data', error);
         }
-        return arrayServices;
-        // return [1];
     }
 
     /**
@@ -91,23 +86,19 @@
     const map = (mapContext) => {
          
         try {
-            let currency        = 1;
-            let tipo_servicio   = 3;// Carburación
-            let entity_status   = 13;
-            // let customform      = 307;
-            let customform      = 264;
-            // let productgasLpId  = 4088;
-            let productgasLpId = 4216;
-            // let publico_general = 14508;
-            let publico_general = 27041;
-            let item = JSON.parse(mapContext.value);
+            const currency       = 1;
+            const tipoServicio   = 3;// Carburación
+            const entityStatus   = 13;
+            // const customform    = 307;
+            const customform     = 264;
+            // const productgasLpId = 4088;
+            const productgasLpId = 4216;
+            // const publicoGeneral = 14508;
+            const publicoGeneral = 27041;
+            const item           = JSON.parse(mapContext.value);
+            const producto       = item.producto.trim() == 'GLP' ? 'GLP' : null;
+            const bomba          = item.dispensador == 1 ? 1 : 2;
             
-            // log.debug('Valores map', item);
-            // log.debug('key', mapContext.key);
-            // return;
-          
-            let producto = item.producto.trim() == 'GLP' ? 'GLP' : null;
-            let bomba    = item.dispensador == 1 ? 1 : 2;
             // Si no es producto de gas lp, no se registra el servicio
             if (! producto ) { return; }
             
@@ -115,17 +106,14 @@
                 type: record.Type.OPPORTUNITY,
             });
             
-            newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipo_servicio});
-            // newOpp.setValue({fieldId:'custbody_ptg_estacion_carburacion', value: 1085});
+            newOpp.setValue({fieldId:'custbody_ptg_tipo_servicio', value: tipoServicio});
              
             // Campos en clasificación
             newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: bomba});
             newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(item.tipo_pago == 'Contado' ? 1 : 2, item.importe_total ?? 0)});
- 
-            // newOpp.setValue({fieldId:'customform', value: 124});
             newOpp.setValue({fieldId:'customform', value: customform});
-            newOpp.setValue({fieldId:'entity', value: publico_general});
-            newOpp.setValue({fieldId:'entitystatus', value: entity_status});
+            newOpp.setValue({fieldId:'entity', value: publicoGeneral});
+            newOpp.setValue({fieldId:'entitystatus', value: entityStatus});
             newOpp.setValue({fieldId:'currency', value: currency});
 
             // Estación de carburación
@@ -139,18 +127,14 @@
             newOpp.setValue({fieldId:'custbody_ptg_totalizador_final_', value: parseFloat(item.totalizador_final ?? 0).toFixed(4) });
             newOpp.setValue({fieldId:'custbody_ptg_tipopago_carburacion_', value: item.tipo_pago == 'Contado' ? 1 : 2});
             newOpp.setValue({fieldId:'custbody_ptg_estacion_', value: 2});
-            newOpp.setValue({fieldId:'custbody_ptg_idcliente_', value: publico_general});// Id cliente
-            // newOpp.setValue({fieldId:'custbody_ptg_idconsumidor_', value: item.consumidor ? item.cliente.identificador_externo : 14508});
+            newOpp.setValue({fieldId:'custbody_ptg_idcliente_', value: publicoGeneral});// Id cliente
             newOpp.setValue({fieldId:'custbody_ptg_folio_carburacion_', value: item.folio});
-            
             newOpp.setText({fieldId:'custbody_ptg_dispensador_', text: item.dispensador });
             newOpp.setValue({fieldId:'custbody_ptg_equipo_', value: 645});
-            // newOpp.setValue({fieldId:'custbody_ptg_id_equipo', value: 645});
             newOpp.setText({fieldId:'custbody_ptg_servicio_id', text: item.servicio_id });
             newOpp.setText({fieldId:'custbody_ptg_folio_ticket', text: item.folio_ticket });
             newOpp.setText({fieldId:'custbodyptg_inicio_servicio', text: item.inicio_servicio });
             newOpp.setText({fieldId:'custbodyptg_fin_servicio', text: item.fin_servicio });
-            
             newOpp.setText({fieldId:'custbody_ptg_merma', text: item.merma });
             newOpp.setText({fieldId:'custbody_ptg_vale_electronico', text: item.vale_electronico });
             newOpp.setText({fieldId:'custbody_ptg_odometro', text: item.odometro });
@@ -179,18 +163,18 @@
                 value: item.valor_unitario ?? 0
             });
  
-            let oppId = newOpp.save();
+            const oppId = newOpp.save();
 
             log.debug('Info', 'Opotunidad guardada exitósamente: '+oppId);
              
-            // Se actualiza el folio recién guardado
+            // Se actualiza el folio recién procesado
             let contadorFolio = record.load({isDynamic : true, type: 'customrecord_ptg_folio_counter', id : item.folioId});
              
             contadorFolio.setValue({fieldId: 'custrecord_ptg_folio_counter', value: item.folio});
              
-            let folioId = contadorFolio.save();
+            const folioId = contadorFolio.save();
              
-            log.debug('Folio ID', folioId);
+            log.debug('Folio contador actualizado exitósamente', folioId);
         } catch (error) {
             log.debug('Algo salió mal', error);
         }
@@ -236,16 +220,16 @@
      * @since 2015.2
      */
     const summarize = (summaryContext) => {
-        let folios     = getFolios();
-        let lengthData = folios.length - 1;
-        log.debug('lengthData', folios.length - 1);
-        let index = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
+        const folios     = getFolios();
+        const lengthData = folios.length - 1;
+        log.debug('Folios length', lengthData);
+        const index = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
         //let index = Number(reduceContext.key);
         if ( index == folios.length - 1 ) {// Ya se terminó de procesar todas y cada una de las plantas
             log.debug('Proceso terminado', 'no tiene mas data por procesar');
         } else {
-            let newIndex = index + 1;
-            log.debug('tiene más data por procesar', lengthData);
+            const newIndex = index + 1;
+            log.debug('Tiene más data por procesar de otra planta', lengthData);
             log.debug('newIndex', newIndex);
             task.create({
                 taskType: task.TaskType.MAP_REDUCE,
@@ -258,31 +242,20 @@
         }
     }
 
-     // Obtiene el último folio guardado en Netsuite
-    const getLastFolio = () => {
-        let lastFolio = search.lookupFields({
-            type: 'customrecord_ptg_folio_counter',
-            id: 1,
-            columns: ['internalid', 'custrecord_ptg_folio_counter']
-        });
-
-        return lastFolio.custrecord_ptg_folio_counter;
-    }
-
     // Configura el json del método de pago
-    const setMetodoPago = (tipo_pago, monto) => {
-        let arrPagos = [
+    const setMetodoPago = (tipoPago, monto) => {
+        const arrPagos = [
             {
-                "metodo_txt":tipo_pago == 1 ? 'Efectivo' : 'Crédito',
-                "tipo_pago":tipo_pago,
+                "metodo_txt":tipoPago == 1 ? 'Efectivo' : 'Crédito',
+                "tipo_pago":tipoPago,
                 "tipo_cuenta":null,
                 "tipo_tarjeta":null,
                 "monto":monto,
                 "folio":"",
             }
         ];
-        // let arrPagos = [{"tipo_pago":"1","monto":100.8},{"tipo_pago":"2","monto":50}];
-        let objPago = {
+
+        const objPago = {
             "pago":arrPagos
         };
 
@@ -309,6 +282,8 @@
                 search.createColumn({name: "custrecord_ptg_folio_counter", label: "Contador"}),
                 search.createColumn({name: "custrecord_ptg_planta", label: "Ubicación"}),
                 search.createColumn({name: "custrecord_ptg_ip_sgc_carb", label: "PTG IP SGC"}),
+                search.createColumn({name: "custrecord_ptg_folio_sgc_carb_api_user", label: "API USER"}),
+                search.createColumn({name: "custrecord_ptg_folio_sgc_carb_api_pass", label: "API PASSWORD"}),
                 search.createColumn({
                     name: "internalid",
                     join: "CUSTRECORD_PTG_PLANTA",
@@ -324,19 +299,15 @@
                 id       : resDiscount.internalid[0].value,
                 contador : resDiscount.custrecord_ptg_folio_counter, 
                 plantaId : resDiscount.custrecord_ptg_planta[0].value, 
-                ip       : resDiscount.custrecord_ptg_ip_sgc_carb
+                ip       : resDiscount.custrecord_ptg_ip_sgc_carb,
+                apiUser  : resDiscount.custrecord_ptg_folio_sgc_carb_api_user,
+                apiPass  : resDiscount.custrecord_ptg_folio_sgc_carb_api_pass,
             };
             foliosArray.push(obj);
 
-            // .run().each has a limit of 4,000 results
             return true;
         });
           
-         /*
-         customrecord_ptg_folio_counterSearchObj.id="customsearch1658353869896";
-         customrecord_ptg_folio_counterSearchObj.title="PTG|Obtener Folios (copy)";
-         var newSearchId = customrecord_ptg_folio_counterSearchObj.save();
-         */
         return foliosArray;
      }
 

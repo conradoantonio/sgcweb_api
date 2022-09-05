@@ -37,7 +37,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                     let idToken = login();
                     let internalFileId = searchXmlFile(search);
                     let xmlContent = file.load({ id: internalFileId }).getContents();
-                    let dataToSend = setServiceData(Number(folios[index].folio) + 1, 1);
+                    let dataToSend = setServiceData(Number(folios[index].folio) + 1, 10);
                     let typeModule = "Servicios";
                     let action = "obtenerListaPorFolio";
                     let responseServ = registerSgcData(xmlContent, idToken, typeModule, action, dataToSend);
@@ -136,6 +136,7 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 registroLineaEst.setValue({fieldId:'custrecord_ptg_cliente_reg_serv_est_lin', value: publicoGeneral});// Cliente
                 registroLineaEst.setText({fieldId:'custrecord_ptg_cantidad_reg_serv_est_lin', text: element.cantidad});// Cantidad de litros surtidos
                 registroLineaEst.setText({fieldId:'custrecord_ptg_cant_old_reg_serv_est_lin', text: element.cantidad});// Cantidad de litros surtidos
+                registroLineaEst.setValue({fieldId:'custrecord_ptg_articulo_reg_serv_est_lin', value: productgasLpId });// GAS LP
                 registroLineaEst.setText({fieldId:'custrecord_ptg_litros_sin_conciliar_2', text: element.cantidad});// Cantidad de litros surtidos
                 registroLineaEst.setText({fieldId:'custrecord_ptg_precio_reg_serv_est_lin', text: element.valor_unitario});// Precio Unitario sin IVA
                 registroLineaEst.setText({fieldId:'custrecord_ptg_impuesto_reg_serv_est_lin', text: iva});// IVA
