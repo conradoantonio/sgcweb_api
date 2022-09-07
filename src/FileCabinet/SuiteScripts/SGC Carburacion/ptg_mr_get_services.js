@@ -2,7 +2,7 @@
  * @NApiVersion 2.1
  * @NScriptType MapReduceScript
  */
- define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runtime', 'N/task'],
+ define(['N/file', 'N/format', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runtime', 'N/task', 'SuiteScripts/dev/moment'],
  /**
 * @param{file} file
 * @param{format} format
@@ -14,7 +14,7 @@
 * @param{runtime} runtime
 * @param{task} task
 */
- (file, format, http, https, record, search, xml, runtime, task) => {
+ (file, format, http, https, record, search, xml, runtime, task, moment) => {
      /**
       * Defines the function that is executed at the beginning of the map/reduce process and generates the input data.
       * @param {Object} inputContext
@@ -54,9 +54,9 @@
             let services     = responseJson.servicios;
             
             services.forEach(service => {
-                service.numFolio      = folios[index].contador;
-                service.folioId       = folios[index].id;
-                service.plantaId      = folios[index].plantaId;
+                service.numFolio = folios[index].contador;
+                service.folioId  = folios[index].id;
+                service.plantaId = folios[index].plantaId;
             });
 
             return services;
@@ -88,12 +88,9 @@
             const currency       = 1;
             const tipoServicio   = 3;// Carburación
             const entityStatus   = 13;
-            // const customform    = 307;
-            const customform     = 264;
-            // const productgasLpId = 4088;
-            const productgasLpId = 4216;
-            // const publicoGeneral = 14508;
-            const publicoGeneral = 27041;
+            const customForm     = ( runtime.envType === runtime.EnvType.PRODUCTION ? 264   : 307 );
+            const productgasLpId = ( runtime.envType === runtime.EnvType.PRODUCTION ? 4216  : 4088 );
+            const publicoGeneral = ( runtime.envType === runtime.EnvType.PRODUCTION ? 27041 : 14508 );
             const item           = JSON.parse(mapContext.value);
             const producto       = item.producto.trim() == 'GLP' ? 'GLP' : null;
             const bomba          = item.dispensador == 1 ? 1 : 2;
@@ -110,7 +107,7 @@
             // Campos en clasificación
             newOpp.setValue({fieldId:'custbody_ptg_bomba_despachadora', value: bomba});
             newOpp.setText({fieldId:'custbody_ptg_opcion_pago_obj', text: setMetodoPago(item.tipo_pago == 'Contado' ? 1 : 2, item.importe_total ?? 0)});
-            newOpp.setValue({fieldId:'customform', value: customform});
+            newOpp.setValue({fieldId:'customform', value: customForm});
             newOpp.setValue({fieldId:'entity', value: publicoGeneral});
             newOpp.setValue({fieldId:'entitystatus', value: entityStatus});
             newOpp.setValue({fieldId:'currency', value: currency});
@@ -221,8 +218,8 @@
     const summarize = (summaryContext) => {
         const folios     = getFolios();
         const lengthData = folios.length - 1;
+        const index      = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
         log.debug('Folios length', lengthData);
-        const index = Number(runtime.getCurrentScript().getParameter({ name: 'custscript_ptg_contador' }));
         //let index = Number(reduceContext.key);
         if ( index == folios.length - 1 ) {// Ya se terminó de procesar todas y cada una de las plantas
             log.debug('Proceso terminado', 'no tiene mas data por procesar');

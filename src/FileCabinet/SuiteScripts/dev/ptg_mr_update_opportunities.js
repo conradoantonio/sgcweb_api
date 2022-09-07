@@ -95,9 +95,9 @@ define(['N/file', 'N/http', 'N/https', 'N/record', 'N/search', 'N/xml', 'N/runti
                 let statusPedido     = 3;// Entregado
                 let entityStatus     = 13;// Concretado
                 let tipoSgc          = 1;// SGC WEB
-                let customform       = 265;// Oportunidad-Potogas
-                let productgasLpId   = 4216;
-                let publicoGeneral   = 27041;
+                const customForm     = ( runtime.envType === runtime.EnvType.PRODUCTION ? 265   : 305 );// Oportunidad-Potogas
+                const productgasLpId   = ( runtime.envType === runtime.EnvType.PRODUCTION ? 4216  : 4088 );
+                const publicoGeneral   = ( runtime.envType === runtime.EnvType.PRODUCTION ? 27041 : 14508 );
                 // let customform       = 305;// Oportunidad-Potogas
                 // let productgasLpId   = 4088;
                 // let publicoGeneral   = 14508;
